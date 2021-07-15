@@ -69,12 +69,14 @@ public class Partition{
 		this.threadPool = new ThreadPool(poolSize);
 				
 		this.hMetisPool = new ArrayList<HMetis>();
+	//	Output.println("\tthis.hMetisPool" + this.hMetisPool);
 		this.netGenThreadPool = new HashMap<Thread, NetGen>();
+	//	Output.println("\tthis.netGenThreadPool" + this.netGenThreadPool);
 		Output.newLine();
 		
 		this.numberOfCutEdges = 0;
 		
-		this.deleteExistingFiles();
+		//this.deleteExistingFiles();
 	}
 	public void partitionate(){
 		this.startTime = System.nanoTime();
@@ -82,11 +84,12 @@ public class Partition{
 		
 		//Stack
 		this.stack = new Stack();
-		
+		//Output.println("\tthis.stack" + this.stack);
 		//Partition
 		Output.println("\tPartitionate netlist:");
 		this.processChildNetlist(this.root);
 		while(!this.stack.isEmpty() || !this.hMetisPool.isEmpty() || !this.netGenThreadPool.isEmpty()){
+			//Output.println("I am checking the while condition" + "this.stack.isEmpty()"+ this.stack.isEmpty() + "this.hMetisPool.isEmpty()"+ this.hMetisPool.isEmpty() +"this.netGenThreadPool.isEmpty()" + this.netGenThreadPool.isEmpty() );
 			this.startHMetis();
 			this.finishHMetis();
 			this.finishNetGen();
@@ -117,6 +120,7 @@ public class Partition{
 	
 	//PARTITION
 	public void startHMetis(){
+		//Output.println("this.threadPool.isEmpty()" + this.threadPool.isEmpty() + "this.stack.isEmpty()" + this.stack.isEmpty());
 		while(!this.threadPool.isEmpty() && !this.stack.isEmpty()){
 			Netlist parent = this.stack.pullNetlist();
 			int thread = this.threadPool.getThread();
@@ -252,6 +256,8 @@ public class Partition{
 		}
 	}
 	public void processChildNetlist(Netlist child){
+	//	Output.println("this.child.atom_count in processChildNetlist" + child.atom_count());
+	//	Output.println("this.maxNetlistSize in maxNetlistSize" + this.maxNetlistSize);
 		if(child.atom_count() > this.maxNetlistSize){
 			this.stack.pushNetlist(child);
 		}

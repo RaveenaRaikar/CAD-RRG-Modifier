@@ -10,6 +10,7 @@ import pack.architecture.Architecture;
 import pack.main.Simulation;
 import pack.netlist.Netlist;
 import pack.partition.Partition;
+//import pack.util.Output;
 import pack.util.Util;
 
 public class Cluster {
@@ -30,11 +31,12 @@ public class Cluster {
 	public void packing(){
 		this.logicBlocks = new ArrayList<>();
 		this.leafNodes = new ArrayList<>();
-
+		
 		TPack tpack = new TPack(this.root, this.partition, this.architecture, this.simulation);
 		tpack.seedBasedPacking();
 		this.logicBlocks.addAll(tpack.getLogicBlocks());
 		this.leafNodes.addAll(this.root.get_leaf_nodes());
+		
 	}
 
 	public void writeNetlistFile(){
@@ -49,6 +51,7 @@ public class Cluster {
 		writer.printHeaderToNetFile(result_folder);
 		writer.printLogicBlocksToNetFile();
 		writer.finishNetFile();
+		
 	}
 
 	public void writeHierarchyFile(){

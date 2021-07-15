@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import pack.netlist.Netlist;
+//import pack.util.Output;
 
 public class Stack {
 	private HashMap<Integer,ArrayList<Netlist>> work;
@@ -14,8 +15,10 @@ public class Stack {
 	public Stack(){
 		this.work = new HashMap<Integer,ArrayList<Netlist>>();
 		this.numElements = 0;
+		//Output.println("this.work" + work);
 	}
 	public void pushNetlist(Netlist netlist){
+		//Output.println("this.numElements in push Netlist" + this.numElements);
 		this.numElements += 1;
 		int numBlocks = netlist.atom_count();
 		if(!this.work.containsKey(numBlocks)){
@@ -24,6 +27,7 @@ public class Stack {
 		this.work.get(numBlocks).add(netlist);
 	}
 	public Netlist pullNetlist(){
+		//Output.println("this.numElements in pull Netlist" + this.numElements);
 		this.numElements -= 1;
 		Netlist netlist = this.work.get(this.getMaxSize()).remove(0);
 		this.removeEmptyRows();
@@ -31,8 +35,10 @@ public class Stack {
 	}
 	public int size(){
 		return this.numElements;
+		
 	}
 	public boolean isEmpty(){
+	//	Output.println("this.numElements in empty" + this.numElements);
 		return (this.numElements == 0);
 	}
 	private int getMaxSize(){

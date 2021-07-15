@@ -62,8 +62,10 @@ public class Main {
 		netlist.pre_pack_ram(archLight);
 
 		netlist.netlist_checker();
-
-		Partition partition = new Partition(netlist, archLight, simulation, path.get_max_arr_time());
+		//PATITIONING USING HMETIS
+		
+		//Initialisation of all parameters required for hMetis
+		Partition partition = new Partition(netlist, archLight, simulation, path.get_max_arr_time()); 
 
 		Timing partitioningTimer = new Timing();
 		partitioningTimer.start();
@@ -75,7 +77,8 @@ public class Main {
 		netlist.test_dsp_distribution();
 
 		Info.finish(simulation);
-
+		
+		//SEED BASED PACKING
 		Cluster pack = new Cluster(netlist, archLight, partition, simulation);
 
 		Timing seedBasedPackingTimer = new Timing();

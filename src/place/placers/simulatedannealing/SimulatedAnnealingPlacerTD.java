@@ -17,7 +17,8 @@ public class SimulatedAnnealingPlacerTD extends SimulatedAnnealingPlacer {
         O_CRITICALITY_EXPONENT_END = "criticality exponent end",
         O_INNER_LOOP_RECALCULATES = "inner loop recalculates";
 
-    public static void initOptions(Options options) {
+    @SuppressWarnings("deprecation")
+	public static void initOptions(Options options) {
         SimulatedAnnealingPlacer.initOptions(options);
 
         options.add(

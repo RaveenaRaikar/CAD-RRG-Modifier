@@ -2,7 +2,7 @@ package pack.partition;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
+//import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -172,6 +172,7 @@ public class HMetis {
 			//NETS
 			for(N n:this.netlist.get_nets()){
 				if(n.add_net_to_hmetis_partitioning(this.param.maxFanout())){
+					//Output.println("I am writing hMETIS nets");
 					this.writeConnections(n, bw);
 				}
 			}
@@ -300,10 +301,10 @@ public class HMetis {
 		}
 		
 		//Delete the files
-		File metisNetlistFile = new File(this.param.getHMetisFolder() + "files/" + this.netlist.get_blif() + "_" + this.param.getSimulationID()  + "_" + this.thread);
-		metisNetlistFile.delete();
-		File metisResultFile = new File(this.param.getHMetisFolder() + "files/" + this.netlist.get_blif() + "_" + this.param.getSimulationID()  + "_" + this.thread + ".part." + this.param.nparts());
-		metisResultFile.delete();
+//		File metisNetlistFile = new File(this.param.getHMetisFolder() + "files/" + this.netlist.get_blif() + "_" + this.param.getSimulationID()  + "_" + this.thread);
+//		metisNetlistFile.delete();
+//		File metisResultFile = new File(this.param.getHMetisFolder() + "files/" + this.netlist.get_blif() + "_" + this.param.getSimulationID()  + "_" + this.thread + ".part." + this.param.nparts());
+//		metisResultFile.delete();
 	}
 	public int getThreadNumber(){
 		return this.thread;

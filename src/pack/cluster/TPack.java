@@ -189,6 +189,7 @@ public class TPack {
 			leafNode.writeSDC(this.vpr_folder + "vpr/files/", thread, this.partition, this.simulation.getSimulationID());
 			leafNode.writeBlif(this.vpr_folder + "vpr/files/", thread, this.partition, this.simulation.getSimulationID());
 			VPRThread vpr = new VPRThread(thread, this.simulation, leafNode);
+			
 			vpr.run(leafNode.atom_count());
 			this.packPool.add(vpr);
 		}
@@ -200,8 +201,10 @@ public class TPack {
 				int thread = vpr.getThread();
 				this.threadPool.addThread(thread);
 
-				String file = this.vpr_folder + "vpr/files/" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
-		 		if(!Util.fileExists(file + ".net")){
+				String file = this.vpr_folder + "vpr/files" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
+		 		/*Output.println(file);*/
+				
+				if(!Util.fileExists(file + ".net")){
 		 			Output.println("Netfile " + file + ".net" + " " + "not available");
 		 			Output.println("**** VPR Line ****");
 		 			Output.println(vpr.getCommand());
@@ -320,12 +323,12 @@ public class TPack {
  			}
  
  			//Delete the files
- 			File net_file = new File(file + ".net");
- 			net_file.delete();
- 			File sdc_file = new File(file + ".sdc");
- 			sdc_file.delete();
- 			File blif_file = new File(file + ".blif");
- 			blif_file.delete();
+// 			File net_file = new File(file + ".net");
+// 			net_file.delete();
+// 			File sdc_file = new File(file + ".sdc");
+// 			sdc_file.delete();
+// 			File blif_file = new File(file + ".blif");
+// 			blif_file.delete();
  		}
 	}
  	private static String parseLine(String line){

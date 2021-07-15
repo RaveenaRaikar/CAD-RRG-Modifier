@@ -84,6 +84,8 @@ public class Simulation{
     	}
     	return (String)option.getValue();
 	}
+
+	
 	public Double getDoubleValue(String name){
 		Option option = this.getOption(name);
 		if(!option.getType().equals(Double.class)) {

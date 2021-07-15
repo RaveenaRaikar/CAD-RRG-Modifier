@@ -36,7 +36,7 @@ public class VPRThread {
 		this.run = new String();
 		this.run += vpr_folder + "vpr/vpr" + " ";
     	this.run += result_folder + "arch.pack.xml" + " ";
-    	this.run += vpr_folder + "vpr/files/" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + " ";
+    	this.run += vpr_folder + "vpr/files" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + " ";
     	this.run += "-pack" + " ";
 
     	ProcessBuilder pb = new ProcessBuilder(this.run.split(" "));	
