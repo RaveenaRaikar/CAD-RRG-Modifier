@@ -1,6 +1,7 @@
 package pack.cluster;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
@@ -35,11 +36,15 @@ public class VPRThread {
 		
 		this.run = new String();
 		this.run += vpr_folder + "vpr/vpr" + " ";
-    	this.run += result_folder + "arch.pack.xml" + " ";
-    	this.run += vpr_folder + "vpr/files" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + " ";
-    	this.run += "-pack" + " ";
+    	//this.run += result_folder + "arch.pack.xml" + " ";
+		this.run += result_folder + "Huawei_arch_multi.timing.xml" + " ";
+		//this.run += result_folder + "stratixiv_arch.timing.xml" + " ";
+		
+    	this.run += vpr_folder + "vpr/files" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + ".blif" + " ";
+    	this.run += "--pack" + " ";
+    	//Output.println("VPR line is " + this.run);
 
-    	ProcessBuilder pb = new ProcessBuilder(this.run.split(" "));	
+    	ProcessBuilder pb = new ProcessBuilder(this.run.split(" "));
     	try {
 			this.proc = pb.start();
         }catch (IOException e) {

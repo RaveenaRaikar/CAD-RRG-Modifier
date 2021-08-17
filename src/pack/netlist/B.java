@@ -59,6 +59,7 @@ public class B {
 		this.outputPins = null;
 		this.atoms = null;
 		this.truthTable = null;
+		//Output.println("Cleanup is true");
 	}
 	
 	//GETTERS AND SETTERS
@@ -327,6 +328,7 @@ public class B {
 	public B clean_copy(){
 		int terminalN = 0;
 		HardBlockGroup rg = null;
+		
 		if(this.hasHardBlockGroup()){
 			rg = this.getHardBlockGroup();
 		}
@@ -441,13 +443,14 @@ public class B {
 		boolean printUnconnectedPins = false;
 		ArrayList<String> parts = new ArrayList<String>();
 		if(this.get_type().equals(".latch")){
-			parts.addAll(this.net_string("in"));
-			parts.addAll(this.net_string("out"));
+			parts.addAll(this.net_string("D"));
+			parts.addAll(this.net_string("Q"));
 			parts.add("re");
 			parts.addAll(this.net_string("clk"));
 			parts.add("0");
 			blif.add_latch(".latch" + toString(parts));
-		}else if(this.get_type().equals(".names")){
+		}
+		else if(this.get_type().equals(".names")){
 			parts.addAll(this.net_string("in"));
 			parts.addAll(this.net_string("out"));
 			blif.add_gate(".names" + toString(parts) + "\n" + this.get_truth_table());
@@ -571,9 +574,11 @@ public class B {
 	}
 	public String get_truth_table(){
 		if(this.has_truth_table()){
+
 			return this.truthTable;
 		}else{
 			return null;
+
 		}
 	}
 	public void set_truth_table(String val){

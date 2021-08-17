@@ -519,6 +519,7 @@ public class P implements Comparable<P>{
 	}
 	public String get_light_architecture_name(){
 		String pinPortName = this.get_port_name();
+		
 		if(this.has_block()){
 			if(this.get_block().has_atoms()){
 				if(Util.isMoleculeType(this.get_block().get_type())){
@@ -529,6 +530,7 @@ public class P implements Comparable<P>{
 					String portName = pinPortName.substring(pinPortName.indexOf(".") + 1,pinPortName.length());
 					B atomBlock = null;
 					for(B atom:this.get_block().get_atoms()){
+			
 						if(atom.get_name().equals(blockName)){
 							if(atomBlock == null){
 								atomBlock = atom;
@@ -541,6 +543,7 @@ public class P implements Comparable<P>{
 						ErrorLog.print("Any of the atom blocks corresponds to " + blockName + " | Port name: " + pinPortName);
 					}
 					if(atomBlock.has_port(portName)){
+						
 						return atomBlock.get_type() + "." + portName;
 					}else{
 						ErrorLog.print("Atom block " + blockName + " does not have port " + portName);

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import pack.util.ErrorLog;
+import pack.util.Output;
 import pack.util.Util;
 
 public class LogicBlock {
@@ -261,10 +262,10 @@ public class LogicBlock {
 		}
 
 		if(this.isEmpty()){
-			if(!this.inputs.isEmpty())ErrorLog.print("Open block should not have inputs");
-			if(!this.outputs.isEmpty())ErrorLog.print("Open block should not have outputs");
-			if(!this.clocks.isEmpty())ErrorLog.print("Open block should not have clocks");
-			if(!this.childBlocks.isEmpty())ErrorLog.print("Open block should not child blocks");
+			//if(!this.inputs.isEmpty()) {ErrorLog.print("Open block should not have inputs");}
+			//if(!this.outputs.isEmpty())ErrorLog.print("Open block should not have outputs");
+			//if(!this.clocks.isEmpty())ErrorLog.print("Open block should not have clocks");
+			//if(!this.childBlocks.isEmpty())ErrorLog.print("Open block should not child blocks");
 			sb.append("/>");
 			sb.append("\n");
 		}else{

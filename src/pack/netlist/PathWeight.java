@@ -71,10 +71,12 @@ public class PathWeight {
 			P sourcePin = null;
 			if(n.has_source()){
 				sourcePin = n.get_source_pin();
+				
 			}else{
 				for(P p:n.get_terminal_pins()){
 					if(p.is_start_pin()){
 						sourcePin = p;
+					
 					}
 				}
 			}
@@ -82,11 +84,13 @@ public class PathWeight {
 				ErrorLog.print("Problem on net " + n.get_name());
 			}
 			for(P sinkPin:n.get_sink_pins()){
+				
 				int delay = this.arch.get_connection_delay(sourcePin, sinkPin);
 				this.delayMap.addDelay(sourcePin, sinkPin, delay);
 			}
 			for(P terminalPin:n.get_terminal_pins()){
 				if(terminalPin.is_end_pin()){
+				
 					int delay = this.arch.get_connection_delay(sourcePin, terminalPin);
 					this.delayMap.addDelay(sourcePin, terminalPin, delay);
 				}

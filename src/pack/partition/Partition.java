@@ -146,6 +146,7 @@ public class Partition{
 			}
 		}
 		if(hMetisMax != null){
+			//Output.println("IS this even true??");
 			this.hMetisPool.remove(hMetisMax);
 			
 			Netlist parent = hMetisMax.getNetlist();
@@ -161,6 +162,7 @@ public class Partition{
 			
 			if(parent.get_children().size() == 2){
 				if(parent.get_level() != 0){
+					//Output.println("IS this even true??");
 					parent.clean_up();
 				}
 			}
@@ -178,9 +180,11 @@ public class Partition{
 				this.threadPool.addThread(ng.thread());
 				
 				this.processChildNetlist(result);
+				//Output.println(" The parent is " + parent.get_children());
 				
 				if(parent.get_children().size() == 2){
 					if(parent.get_level() != 0){
+						Output.println("This is true in Net generation");
 						parent.clean_up();
 					}
 				}

@@ -100,7 +100,9 @@ public class NetFileWriter {
 		writeClocksToNetFile();
 	}
 	public void printLogicBlocksToNetFile(){
+		//Output.println("The file is " + this.root);
 		for(LogicBlock lb:this.logicBlocks){
+			//Output.println("The block is " + lb.getName());
 			lb.setInstanceNumber(this.blockC++);
 			this.writeToNetFile(lb.toNetString(1));
 		}

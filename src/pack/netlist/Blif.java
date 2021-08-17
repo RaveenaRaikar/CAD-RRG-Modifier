@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 
+import pack.util.Output;
+
 public class Blif {
 	private String blif; 
 	private String folder;
@@ -137,8 +139,10 @@ public class Blif {
 			bufferedWriter.newLine();
 
 			for(String gate:this.gates){
+
 				bufferedWriter.write(gate);
 				bufferedWriter.newLine();
+				
 			}
 			bufferedWriter.newLine();
 

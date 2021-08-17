@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +45,7 @@ public class Netlist{
 	private ArrayList<LogicBlock> logicBlocks;
 
 	private Data data;
+	//private String truthTable;
 
 	//SAVE INFORMATION AFTER CLEAN UP
 	private boolean cleaned = false;
@@ -66,7 +68,7 @@ public class Netlist{
 		this.blockCount = new HashMap<String,Integer>();
 		
 		this.read_blif();
-		
+
 		post_blif_netlist_processing();
 		Output.newLine();
 		
@@ -116,7 +118,7 @@ public class Netlist{
 	}
 
 	//// BLIF READER ////
-	private void read_blif(){
+	public void read_blif(){
 		Timing blifTiming = new Timing();
 		blifTiming.start();
 		Output.print("Read " + this.get_blif());
@@ -172,8 +174,9 @@ public class Netlist{
 				this.assign_truth_table(previous, truthTable);
 				previous = null;
 				truthTable = "";
-				
+								
 				if(!this.has_model(".names")){
+					//Output.println("AM I True for blink o led??");
 					Model model = new Model(".names", this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
 					model.add_input_port("in");
 					model.add_input_port("in");
@@ -188,9 +191,11 @@ public class Netlist{
 				Model model = this.get_model(".names");
 				model.increment_occurences();
 				
+				
 				words = line.split(" ");
 				B b = new B(words[words.length-1], blockNumber++, model.get_name(), null, null);
 				this.add_block(b);
+			//	Output.println("The block added is " + b.get_name());
 				
 				//INPUTS
 				for(int j = 1; j<words.length-1; j++) {
@@ -223,6 +228,8 @@ public class Netlist{
 					n.set_source(p);
 				}
 				previous = b;
+				
+				//Output.println("The model is "+ model.get_name() + " Truth table is " + truthTable);
 			//SUBCKT
 			}else if (line.contains(".subckt")) {
 				this.assign_truth_table(previous, truthTable);
@@ -344,11 +351,13 @@ public class Netlist{
 				truthTable = "";
 				
 				if(!this.has_model(".latch")){
+					
 					Model model = new Model(".latch", this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
-					model.add_input_port("in");
+					model.add_input_port("D");
 					model.add_input_port("clk");
-					model.add_output_port("out");
+					model.add_output_port("Q");
 					this.add_model(model);
+					
 				}
 				
 				Model model = this.get_model(".latch");
@@ -357,7 +366,7 @@ public class Netlist{
 				words = line.split(" ");
 				B b = new B(words[2], blockNumber++, model.get_name(), words[4], null);
 				this.add_block(b);
-
+				
 				//INPUT
 				netName = words[1];
 				if(valid_net(netName)){
@@ -368,8 +377,8 @@ public class Netlist{
 						this.add_net(n);
 						netMap.put(netName, n);
 					}
-					P p = new P(b, n, "in", false, true, 1, null, null, false, true);
-					b.add_input_pin("in", p);
+					P p = new P(b, n, "D", false, true, 1, null, null, false, true);
+					b.add_input_pin("D", p);
 					n.add_sink(p);
 				}
 				//CLK
@@ -396,8 +405,8 @@ public class Netlist{
 						this.add_net(n);
 						netMap.put(netName, n);
 					}
-					P p = new P(b, n, "out", true, false, 0, null, null, true, false);
-					b.add_output_pin("out", p);
+					P p = new P(b, n, "Q", true, false, 0, null, null, true, false);
+					b.add_output_pin("Q", p);
 					n.set_source(p);
 				}
 			//INPUTS
@@ -467,11 +476,18 @@ public class Netlist{
 					if(line.length()>0 && (line.charAt(0)=='0'||line.charAt(0)=='1'||line.charAt(0)=='-')){
 						truthTable = truthTable + line +"\n";
 					}else{
+						if(line.contains(".end"))
+						{
+							truthTable = truthTable +"\n";
+						}
+						}
+						// nbhgOutput.println("AM I TRUE?????");
 						//Output.println("Unused line -> " + line);
-					}
 				}
 			}
 		}
+		
+	//	Output.println("Truth table in the constructor is " + previous.get_truth_table() );
 		
 		blifTiming.stop();
 		Output.println(" | Read file took " + readFile.toString() + " | Total time " + blifTiming.toString());
@@ -551,6 +567,7 @@ public class Netlist{
 				latch_inputs.add(words[1]);
 			}
 		}
+		
 		return latch_inputs;
 	}
 	private HashSet<String> get_latch_outputs(String[] lines){
@@ -561,6 +578,7 @@ public class Netlist{
 				latch_outputs.add(words[2]);
 			}
 		}
+		
 		return latch_outputs;
 	}
 	private int remove_buffers(String[] lines, HashMap<String,String> bufferedNets){
@@ -1019,8 +1037,114 @@ public class Netlist{
 		}
 	}
 
+	
+	
+	///DUMMY blif writer
+	public void writeBlif_dummy(String folder, int num, int simulationID){
+		
+		Blif blif = new Blif(folder, this.get_blif(), num, simulationID);	
+		//Output.println("The blif file is " + this.get_blif());
+		//Cut nets
+		
+		//HashSet<String> cutNets = partition.getCutEdges().getCutNetNames();
+
+		//Inputs
+ 		for(N inputNet:this.get_input_nets()){
+ 			
+ 			boolean hasInputTerminal = false;
+			for(P terminalPin:inputNet.get_terminal_pins()){
+				T t = terminalPin.get_terminal();
+				if(t.is_input_type()){
+					blif.add_input(t.get_name());
+					hasInputTerminal = true;
+				}
+			}
+			if(!hasInputTerminal){
+			boolean hasCutTerminal = false;
+				for(P terminalPin:inputNet.get_terminal_pins()){
+					T t = terminalPin.get_terminal();
+					
+					if(t.is_cut_type()){
+						blif.add_input(t.get_name());
+						hasCutTerminal = true;
+					}
+				}
+				if(!hasCutTerminal){
+					ErrorLog.print("An input net should have an input or cut terminal");
+				}
+			}
+ 		}
+ 		
+ 		//Outputs
+ 		for(N outputNet:this.get_output_nets()){
+ 			boolean outputAdded = false;
+			for(P terminalPin:outputNet.get_terminal_pins()){
+				T t = terminalPin.get_terminal();
+				if(t.is_output_type()){
+					blif.add_output(t.get_name());
+					if(!outputNet.get_name().equals(t.get_name())){
+						blif.add_buffer(outputNet.get_name(), t.get_name());
+					}
+					outputAdded = true;
+				}
+			}
+			if(!outputAdded){
+				for(P terminalPin:outputNet.get_terminal_pins()){
+					T t = terminalPin.get_terminal();
+					if(t.is_cut_type()){
+						boolean outputRequired = true;
+						for(B b:outputNet.get_sink_blocks()){
+							if(b.get_type().contains("stratixiv_ram_block")){
+								outputRequired = false;
+							}
+						}
+						if(!outputRequired){
+							//if(cutNets.contains(outputNet.get_name())){
+								outputRequired = true;
+							//}
+						}
+						if(outputRequired){
+							if(!this.clocks.contains(t.get_name())){
+								blif.add_output(t.get_name());
+								if(!outputNet.get_name().equals(t.get_name())){
+									blif.add_buffer(outputNet.get_name(), t.get_name());
+								}
+								outputAdded = true;
+							}else{
+								if(outputNet.fanout() == 0){
+									Output.println("\t\t\tThe cut clock net has no sinks in the circuit, output pin is added to blif file");
+									blif.add_output(t.get_name());
+									if(!outputNet.get_name().equals(t.get_name())){
+										blif.add_buffer(outputNet.get_name(), t.get_name());
+									}
+								}
+								outputAdded = true;
+							}
+						}else{
+							outputAdded = true; //In fact it is not added, because it is not required
+						}
+					}
+				}
+	 		}
+			if(!outputAdded){
+				ErrorLog.print("This output net " + outputNet + " should have a terminal");
+			}
+ 		}
+ 		
+ 		//All blif primitives
+		for(B b:this.get_ordered_block_array()){
+			b.to_blif_string(blif, this.get_model(b.get_type()));
+			}
+		
+		//Net for unconnected input pins
+		blif.add_gate(".names unconn\n0");
+		
+		blif.write();
+	}
+
 	//// BLIF WRITER ////
 	public void writeBlif(String folder, int num, Partition partition, int simulationID){
+		
 		Blif blif = new Blif(folder, this.get_blif(), num, simulationID);	
 
 		//Cut nets
@@ -1037,9 +1161,10 @@ public class Netlist{
 				}
 			}
 			if(!hasInputTerminal){
-				boolean hasCutTerminal = false;
+			boolean hasCutTerminal = false;
 				for(P terminalPin:inputNet.get_terminal_pins()){
 					T t = terminalPin.get_terminal();
+					
 					if(t.is_cut_type()){
 						blif.add_input(t.get_name());
 						hasCutTerminal = true;
@@ -1110,7 +1235,7 @@ public class Netlist{
  		//All blif primitives
 		for(B b:this.get_ordered_block_array()){
 			b.to_blif_string(blif, this.get_model(b.get_type()));
-		}
+			}
 		
 		//Net for unconnected input pins
 		blif.add_gate(".names unconn\n0");
@@ -2155,6 +2280,7 @@ public class Netlist{
 		//Remove and add netlist elements
 		for(B atom:atoms){
 			this.remove_block(atom);
+			//Output.println("Model name" + atom);
 			this.get_models().get(atom.get_type()).decrement_occurences();
 		}
 		this.add_block(molecule);

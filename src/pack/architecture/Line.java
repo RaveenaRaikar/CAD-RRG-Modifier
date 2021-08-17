@@ -52,8 +52,12 @@ public class Line {
 		this.type = words[0];
 		for(int i=1; i<words.length; i++){
 			String[] parts = words[i].split("=");
+			//System.out.println("Length of the line " + parts.length +" " + "and the line is " + this.originalLine);
 			if(parts.length != 2){
+			//	int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+		   //     System.out.println("The Current Line Number is " + currentLine);
 				ErrorLog.print("The number of parts is equal to " + parts.length + " | " + words[i] + " | " + this.originalLine);
+
 			}
 			this.properties.put(parts[0], parts[1].replace("\"",""));
 		}

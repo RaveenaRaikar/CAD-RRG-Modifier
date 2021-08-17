@@ -50,7 +50,7 @@ public class TPack {
 		this.logicBlocks = new ArrayList<>();
 
 		this.findNetlistInputsAndOutputTerminalNames();
-		this.deleteExistingFiles();
+		//this.deleteExistingFiles();
 	}
 	private void findNetlistInputsAndOutputTerminalNames(){
 		this.netlistInputs = new HashSet<>();
@@ -143,10 +143,12 @@ public class TPack {
 		Output.newLine();
 
 		if(this.root.has_floating_blocks()){
+			
 			this.startTPack(this.root.get_floating_blocks());
 		}
 
 		while(!this.subcircuits.isEmpty() || !this.packPool.isEmpty()){
+			
 			this.startTPack();
 			this.finishTPack();
 		}
@@ -201,9 +203,12 @@ public class TPack {
 				int thread = vpr.getThread();
 				this.threadPool.addThread(thread);
 
-				String file = this.vpr_folder + "vpr/files" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
+				//String file = this.vpr_folder + "vpr/files" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
 		 		/*Output.println(file);*/
-				
+				String currentWorkingDir = System.getProperty("user.dir");
+				String file = currentWorkingDir + this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
+				//String file = "/home/raveena/Documents/Code/FPGA-CAD-Framework" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
+				//Output.println(file);
 				if(!Util.fileExists(file + ".net")){
 		 			Output.println("Netfile " + file + ".net" + " " + "not available");
 		 			Output.println("**** VPR Line ****");

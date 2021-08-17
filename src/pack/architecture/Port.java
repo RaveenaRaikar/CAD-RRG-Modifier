@@ -3,13 +3,15 @@ package pack.architecture;
 import java.util.ArrayList;
 
 import pack.util.ErrorLog;
+import pack.util.Output;
 
 public class Port {
 	private String portType;
 	private String portName;
 	private ArrayList<Pin> pins;
 	private String portClass;
-	private Boolean equivalent;
+//	private Boolean equivalent;
+	private String equivalent;
 	public Port(Line line, Block parentBlock){
 		this.portType = line.get_type();
 		this.portName = line.get_value("name");
@@ -23,9 +25,17 @@ public class Port {
 		if(line.has_property("port_class")) this.portClass = line.get_value("port_class");
 		if(line.has_property("equivalent")){
 			if(line.get_value("equivalent").equalsIgnoreCase("true")){
-				this.equivalent = Boolean.TRUE;
+				//this.equivalent = Boolean.TRUE;
+				this.equivalent = "true";
 			}else if(line.get_value("equivalent").equalsIgnoreCase("false")){
-				this.equivalent = Boolean.FALSE;
+				this.equivalent = "false";
+			}
+			else if(line.get_value("equivalent").equalsIgnoreCase("full")){
+				this.equivalent = "full";
+			}else if(line.get_value("equivalent").equalsIgnoreCase("none")){
+				this.equivalent = "none";
+			}else if(line.get_value("equivalent").equalsIgnoreCase("instance")){
+				this.equivalent = "instance";
 			}
 		}
 	}
@@ -64,13 +74,21 @@ public class Port {
 		if(this.equivalent != null){
 			sb.append(" ");
 			sb.append("equivalent=\"");
-			if(this.equivalent){
+			if(this.equivalent.contentEquals("true")){
 				sb.append("true");
-			}else{
+				
+			}else if(this.equivalent.contentEquals("false")){
 				sb.append("false");
+			}else if(this.equivalent.contentEquals("full")){
+				sb.append("full");
+			}else if(this.equivalent.contentEquals("none")){
+				sb.append("none");
+			}else if(this.equivalent.contentEquals("instance")){
+				sb.append("instance");
 			}
 			sb.append("\"");
 		}
+		//Output.println("this.equivalent is " + this.equivalent );
 		if(this.portClass != null){
 			sb.append(" ");
 			sb.append("port_class=\"");

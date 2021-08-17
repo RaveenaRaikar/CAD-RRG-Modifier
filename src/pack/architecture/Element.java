@@ -28,6 +28,7 @@ public class Element {
 	//Delay information
 	private HashMap<String,Integer> delayMatrix;//delay in ps
 	private HashMap<String,Integer> setupTime;//delay in ps
+	private HashMap<String,Integer> holdTime;//delay in ps
 	private HashMap<String,Integer> clockToOutput;//delay in ps
 	
 	public Element(Line line, String type){
@@ -50,6 +51,7 @@ public class Element {
 		
 		this.delayMatrix = new HashMap<String,Integer>();
 		this.setupTime = new HashMap<String,Integer>();
+		this.holdTime = new HashMap<String,Integer>();
 		this.clockToOutput = new HashMap<String,Integer>();
 	}
 	
@@ -73,7 +75,7 @@ public class Element {
 		}
 		this.delayMatrix.put(this.get_key(inputPortName, outputPortName), delay);
 	}
-	public void add_setup(String inputPortName, String clockName, int delay){
+	public void add_setup(String inputPortName, String outputPortName, String clockName, int delay){
 		if(!this.has_clock()){
 			ErrorLog.print("Only sequential blocks have a setup time");
 		}
@@ -82,31 +84,122 @@ public class Element {
 		}
 		if(inputPortName.contains(this.name) && (inputPortName.indexOf(".") == inputPortName.lastIndexOf("."))){
 			inputPortName = inputPortName.replace(this.name, "").replace(".", "");
-		}else{
-			ErrorLog.print("Unexpected name for input port: " + inputPortName + " | name " + this.name);
+			this.setupTime.put(inputPortName, delay);
 		}
-		if(!this.inputPorts.containsKey(inputPortName)){
-			ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+		if(outputPortName.contains(this.name) && (outputPortName.indexOf(".") == outputPortName.lastIndexOf("."))){
+			outputPortName = outputPortName.replace(this.name, "").replace(".", "");
+			this.setupTime.put(outputPortName, delay);
 		}
-		this.setupTime.put(inputPortName, delay);
+	//	else{
+	//		ErrorLog.print("Unexpected name for input port: " + inputPortName + " | name " + this.name);
+	//	}
+	//	if(!this.inputPorts.containsKey(inputPortName)){
+	//		ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+	//	}
+		//this.setupTime.put(inputPortName, delay);
 	}
-	public void add_clock_to_output(String clock, String outputPortName, int delay){
+//	public void add_setup(String inputPortName, String outputPortName, String clockName, int delay){
+//		if(!this.has_clock()){
+//			ErrorLog.print("Only sequential blocks have a setup time");
+//		}
+//		if(!this.clockPort.get_name().equals(clockName)){
+///			ErrorLog.print("Wrong name of clock port");
+//		}
+//		if(inputPortName.contains(this.name) && (inputPortName.indexOf(".") == inputPortName.lastIndexOf("."))){
+//			inputPortName = inputPortName.replace(this.name, "").replace(".", "");
+//		}else{
+//			ErrorLog.print("Unexpected name for input port: " + inputPortName + " | name " + this.name);
+//		}
+//		if(!this.inputPorts.containsKey(inputPortName)){
+//			ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+//		}
+//		this.setupTime.put(inputPortName, delay);
+//	}
+	public void add_hold(String inputPortName, String outputPortName, String clockName, int delay){
 		if(!this.has_clock()){
-			ErrorLog.print("Only sequential blocks have a setup time");
+			ErrorLog.print("Only sequential blocks have a hold time");
+		}
+		if(!this.clockPort.get_name().equals(clockName)){
+			ErrorLog.print("Wrong name of clock port");
+		}
+		if(inputPortName.contains(this.name) && (inputPortName.indexOf(".") == inputPortName.lastIndexOf("."))){
+			inputPortName = inputPortName.replace(this.name, "").replace(".", "");
+			this.holdTime.put(inputPortName, delay);
+		}
+		if(outputPortName.contains(this.name) && (outputPortName.indexOf(".") == outputPortName.lastIndexOf("."))){
+			outputPortName = outputPortName.replace(this.name, "").replace(".", "");
+			this.holdTime.put(outputPortName, delay);
+		}
+		//if(!this.inputPorts.containsKey(inputPortName)){
+	//		ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+	//	}
+		//this.holdTime.put(inputPortName, delay);
+	}
+	
+//	public void add_hold(String inputPortName, String clockName, int delay){
+//		if(!this.has_clock()){
+//			ErrorLog.print("Only sequential blocks have a hold time");
+//		}
+//		if(!this.clockPort.get_name().equals(clockName)){
+//			ErrorLog.print("Wrong name of clock port");
+//		}
+//		if(inputPortName.contains(this.name) && (inputPortName.indexOf(".") == inputPortName.lastIndexOf("."))){
+//			inputPortName = inputPortName.replace(this.name, "").replace(".", "");
+//		}else{
+//			ErrorLog.print("Unexpected name for input port: " + inputPortName + " | name " + this.name);
+//		}
+///		if(!this.inputPorts.containsKey(inputPortName)){
+//			ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+//		}
+//		this.holdTime.put(inputPortName, delay);
+//	}
+	
+	
+//	public void add_clock_to_inputoutput(String clock, String outputPortName, int delay){
+//		if(!this.has_clock()){
+//			ErrorLog.print("Only sequential blocks have a setup/hold time");
+//		}
+//		if(!this.clockPort.get_name().equals(clock)){
+//			ErrorLog.print("Wrong name of clock port");
+//		}
+//		if(outputPortName.contains(this.name) && (outputPortName.indexOf(".") == outputPortName.lastIndexOf("."))){
+//			outputPortName = outputPortName.replace(this.name, "").replace(".", "");
+//		}else{
+//			ErrorLog.print("Unexpected name for input port: " + outputPortName + " | name " + this.name);
+//		}
+//		if(!this.outputPorts.containsKey(outputPortName)){
+//			//Output.println("outputPortName"+ outputPortName + "this.outputPorts.containsKey(outputPortName)"+ this.outputPorts.containsKey(outputPortName));
+//			ErrorLog.print("This block " + this.name + " does not have output port " + outputPortName);
+//		}
+//		this.clockToOutput.put(outputPortName, delay);
+//	}
+	
+	public void add_clock_to_input_output(String clock,String inputPortName, String outputPortName, int delay){
+		if(!this.has_clock()){
+			ErrorLog.print("Only sequential blocks have a setup/hold time");
 		}
 		if(!this.clockPort.get_name().equals(clock)){
 			ErrorLog.print("Wrong name of clock port");
 		}
 		if(outputPortName.contains(this.name) && (outputPortName.indexOf(".") == outputPortName.lastIndexOf("."))){
 			outputPortName = outputPortName.replace(this.name, "").replace(".", "");
+			this.clockToOutput.put(outputPortName, delay);
+		}
+		if(inputPortName.contains(this.name) && (inputPortName.indexOf(".") == inputPortName.lastIndexOf("."))){
+			inputPortName = inputPortName.replace(this.name, "").replace(".", "");
+			this.clockToOutput.put(inputPortName, delay);
 		}else{
-			ErrorLog.print("Unexpected name for input port: " + outputPortName + " | name " + this.name);
+			ErrorLog.print("Unexpected name for input/ouput port: " + inputPortName + " "+ outputPortName + " | name " + this.name);
 		}
-		if(!this.outputPorts.containsKey(outputPortName)){
-			ErrorLog.print("This block " + this.name + " does not have output port " + outputPortName);
-		}
-		this.clockToOutput.put(outputPortName, delay);
+		//if(!this.outputPorts.containsKey(outputPortName)){
+		//	ErrorLog.print("This block " + this.name + " does not have output port " + outputPortName);
+			
+		//}else if(!this.inputPorts.containsKey(inputPortName)){
+		//	ErrorLog.print("This block " + this.name + " does not have input port " + inputPortName);
+		//}
+		//this.clockToOutput.put(outputPortName, delay);
 	}
+	
 	public int get_delay(String input, String output){
 		String key = this.get_key(input, output);
 		if(this.delayMatrix.containsKey(key)){
@@ -121,6 +214,14 @@ public class Element {
 			return this.setupTime.get(input);
 		}else{
 			Output.println("No setup time for port " + input + " found");
+			return 0;
+		}
+	}
+	public int get_hold(String input){
+		if(this.holdTime.containsKey(input)){
+			return this.holdTime.get(input);
+		}else{
+			Output.println("No hold time for port " + input + " found");
 			return 0;
 		}
 	}
@@ -141,6 +242,9 @@ public class Element {
 	}
 	public boolean has_setup_delay(String input){
 		return this.setupTime.containsKey(input);
+	}
+	public boolean has_hold_delay(String input){
+		return this.holdTime.containsKey(input);
 	}
 	public boolean has_clock_to_output_delay(String output){
 		return this.clockToOutput.containsKey(output);
@@ -175,6 +279,7 @@ public class Element {
 		this.portOrder.add(clockPort.get_name());
 	}
 	public void add_interconnect_line(String line){
+		//Output.println("line is "+ line );
 		if(this.type.equals("pb_type") && this.has_parent()){
 			ErrorLog.print("pb_type " + this.name + " has interconnect lines => " + line);
 		}
@@ -186,6 +291,7 @@ public class Element {
 	public void add_child(Element child){
 		if(!this.children.contains(child)){
 			this.children.add(child);
+			//Output.println("this.children.add(child) " + this.children.add(child));
 		}else{
 			ErrorLog.print("Child already added");
 		}
@@ -294,6 +400,7 @@ public class Element {
 	public void remove_child(Element child){
 		if(this.children.contains(child)){
 			this.children.remove(child);
+		//	Output.println("Children node " + this.name);
 		}else{
 			ErrorLog.print("This block " + this.name + " does not contain child " + child.get_name());
 		}
@@ -391,6 +498,9 @@ public class Element {
 		for(String inputPort:this.setupTime.keySet()){
 			res.add(this.setupTime(inputPort));
 		}
+		for(String inputPort:this.holdTime.keySet()){
+			res.add(this.holdTime(inputPort));
+		}
 		for(String outputPort:this.clockToOutput.keySet()){
 			res.add(this.clockToOutput(outputPort));
 		}
@@ -453,6 +563,34 @@ public class Element {
 		sb.append(this.clockPort.get_name());
 		sb.append("\" value=\"");
 		String value = "" + this.setupTime.get(inputPort).doubleValue()*Math.pow(10, -12) + "";
+		if(value.contains("999")){
+			String repl = "999";
+			while(value.contains(repl + "9")){
+				repl += "9";
+			}
+			for(int i = 0; i< 9; i++){
+				if(value.contains(i + repl)){
+					if(("" + (i+1) + "").length() != 1){
+						ErrorLog.print("Problem");
+					}
+					value = value.replace("" + i + "" + repl, "" + (i+1) + "");
+				}
+			}
+		}
+		sb.append(value);
+		sb.append("\"/>");
+		return sb.toString();
+	}
+	private String holdTime(String inputPort){
+		StringBuilder sb = new StringBuilder();
+		sb.append("<T_hold port=\"");
+		sb.append(this.name);
+		sb.append(".");
+		sb.append(inputPort);
+		sb.append("\" clock=\"");
+		sb.append(this.clockPort.get_name());
+		sb.append("\" value=\"");
+		String value = "" + this.holdTime.get(inputPort).doubleValue()*Math.pow(10, -12) + "";
 		if(value.contains("999")){
 			String repl = "999";
 			while(value.contains(repl + "9")){
@@ -712,6 +850,7 @@ public class Element {
 		if(this.has_clock()){
 			res.add(this.clockPort.toString());
 			for(Port input:this.inputPorts.values()) res.add("<T_setup port=\"" + dummy_name + "." + input.get_name() + "\" clock=\"" + this.clockPort.get_name() + "\" value=\"0.0\"/>"); 
+			for(Port input:this.inputPorts.values()) res.add("<T_hold port=\"" + dummy_name + "." + input.get_name() + "\" clock=\"" + this.clockPort.get_name() + "\" value=\"0.0\"/>");
 			for(Port output:this.outputPorts.values()) res.add("<T_clock_to_Q port=\"" + dummy_name + "." + output.get_name() + "\" clock=\"" + this.clockPort.get_name() + "\" max=\"0.0\"/>"); 
 		}
 		res.add("</pb_type>");
@@ -772,17 +911,57 @@ public class Element {
 		
 		dummyModel.add("<model name=\"" + this.name + "_dummy\">");
 		dummyModel.add("<input_ports>");
-		for(String input:this.inputPorts.keySet()){
-			dummyModel.add("<port name=\"" + input + "\"/>");
-		}
-		if(this.has_clock()){
+		
+		//If clock port
+		//Add inputs with the clock value
+		//Add the clock as well
+		//else
+		//Add combinational port
+		///Raveena
+		if(this.has_clock()) {
+			for(String input:this.inputPorts.keySet()){
+				//dummyModel.add("<port name=\"" + input + "\"/>");
+				//Need to add the clocking status of the port
+				dummyModel.add("<port name=\"" + input + "\"" + " " + "clock=\"" + this.clockPort.get_name() + "\"/>");
+			}
 			dummyModel.add("<port name=\"" + this.clockPort.get_name() + "\" is_clock=\"1\"/>");
 		}
+		else {
+			for(String input:this.inputPorts.keySet()){
+				//dummyModel.add("<port name=\"" + input + "\"/>");
+				//Need to add the clocking status of the port
+				dummyModel.add("<port name=\"" + input + "\"/>");
+			}
+		}
+		
+		/*
+		 * for(String input:this.inputPorts.keySet()){ //dummyModel.add("<port name=\""
+		 * + input + "\"/>"); //Need to add the clocking status of the port
+		 * dummyModel.add("<port name=\"" + input + "\"/>"); } if(this.has_clock()){
+		 * dummyModel.add("<port name=\"" + this.clockPort.get_name() +
+		 * "\" is_clock=\"1\"/>"); }
+		 */
 		dummyModel.add("</input_ports>");
 		dummyModel.add("<output_ports>");
-		for(String output:this.outputPorts.keySet()){
-			dummyModel.add("<port name=\"" + output + "\"/>");
+		
+		//IF CLOCK PORT
+		//ADD THE CLOCK VALUE TO THE OUTPUT PORT 
+		//ELSE
+		//AS IS
+		if(this.has_clock()) {
+		for(String output:this.outputPorts.keySet()){ 
+			dummyModel.add("<port name=\"" + output + "\"" + " " + "clock=\"" + this.clockPort.get_name() + "\"/>"); 
+			}
 		}
+		else {
+			for(String output:this.outputPorts.keySet()){ 
+				dummyModel.add("<port name=\"" + output + "\"/>"); 
+				}
+		}
+		/*
+		 * for(String output:this.outputPorts.keySet()){ dummyModel.add("<port name=\""
+		 * + output + "\"/>"); }
+		 */
 		dummyModel.add("</output_ports>");
 		dummyModel.add("</model>");
 		

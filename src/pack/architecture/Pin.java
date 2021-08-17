@@ -111,6 +111,9 @@ public class Pin implements Comparable<Pin>{
 				if(block.has_setup_delay(sink.get_port_name())){
 					delay += block.get_setup(sink.get_port_name());
 				}
+				if(block.has_hold_delay(sink.get_port_name())){
+					delay += block.get_hold(sink.get_port_name());
+				}
 			}
 			this.neighbours.put(sink, delay);
 		}

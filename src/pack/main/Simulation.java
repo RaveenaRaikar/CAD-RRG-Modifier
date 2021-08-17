@@ -36,7 +36,7 @@ public class Simulation{
 		
 		this.addOption(new Option("logfile","print console output to logfile", false));
 		this.addOption(new Option("print_stats_to_file","print additional information of MultiPart algorithm to separate stats files", false));
-		
+		//TO-DO Add more options for interposer based structure
 		this.simulationID = (int)Math.round(Math.random()*1000000);
 	}
 	public boolean hasOption(Option option){

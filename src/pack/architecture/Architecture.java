@@ -1,5 +1,6 @@
 package pack.architecture;
 
+import java.util.*;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -77,6 +78,7 @@ public class Architecture {
 		    		lines.add(sb.toString());
 		    	}else{
 		    		lines.add(line);
+		    		//System.out.println(lines);
 		    	}
 		        line = br.readLine();
 		    }
@@ -84,7 +86,9 @@ public class Architecture {
 		}catch (IOException e) {
 			e.printStackTrace();
 		}
+		//System.out.println(lines);
 		return parse_file(lines);
+		
 	}
 	private ArrayList<String> parse_file(ArrayList<String> lines){//Trim lines | Remove comment and empty lines
 		ArrayList<String> res = new ArrayList<String>();
@@ -109,7 +113,9 @@ public class Architecture {
 	//INITIALIZE ARCHITECTURE
 	public void initialize(){
 		Output.println("Initialize architecture:");
-		this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "arch.light.xml");
+	//	this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "arch.light.xml");
+		this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "Huawei_arch_multi.timing.xml");
+	//	this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "stratixiv_arch.timing.xml");
 		this.get_models();
 		this.get_complex_blocks(true);
 		this.initializeDimensions();
@@ -136,6 +142,8 @@ public class Architecture {
 		boolean complete = false;
 		boolean mux = false;
 		boolean direct = false;
+		
+		
 		for(int i=0;i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("<complexblocklist>")){
@@ -149,12 +157,16 @@ public class Architecture {
 					current = new Block(new Line(line));
 					if(current.has_blif_model()){
 						String blifModel = current.get_blif_model();
+						//System.out.println(current.has_blif_model() + current.get_blif_model() + " ");
+					//	System.out.println(this.blifBlocks.containsKey(blifModel) + " " );
+					//	System.out.println(parent.get_name() + " ");
 						if(!this.blifBlocks.containsKey(blifModel)){
 							this.blifBlocks.put(blifModel, new ArrayList<Block>());
 						}
 						this.blifBlocks.get(blifModel).add((Block)current);
 					}
 					if(parent != null){
+						//Output.println("parent is not null");
 						current.set_parent(parent);
 						parent.add_child(current);
 					}
@@ -164,7 +176,10 @@ public class Architecture {
 					if(parent != null){
 						current.set_parent(parent);
 						parent.add_child(current);
+						//Output.println("current.set_parent(parent) " + line);
+						//Output.println("current.add_child(parent) " + this.current);
 					}
+					
 				}else if(line.contains("</pb_type>")){
 					if(current.has_parent()){
 						current = current.get_parent();
@@ -224,17 +239,40 @@ public class Architecture {
 					}else{
 						ErrorLog.print("This line should have type delay_constant instead of " + l.get_type() + " | " + line);
 					}
+				//}else if(line.contains("<T_clock_to_Q")){
+				//	Line l = new Line(line);
+				//	if(l.get_type().equals("T_clock_to_Q")){
+				//		String clock = l.get_value("clock");
+				//		if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
+						//Add input 
+				//		String[] outputs = l.get_value("port").split(" ");
+				//		double secondDelay = Double.parseDouble(l.get_value("max"));
+				//		int picoSecondDelay = (int)Math.round(secondDelay*Math.pow(10, 12));
+						
+				//		for(String output:outputs){
+				//			if(output.contains("[") || output.contains("]")) ErrorLog.print("Wrong output format " + output);
+				//			current.add_clock_to_output(clock, output, picoSecondDelay);
+				//		}
+				//	}else{
+				//		ErrorLog.print("This line should have type T_clock_to_Q instead of " + l.get_type() + " | " + line);
+				//	}
 				}else if(line.contains("<T_clock_to_Q")){
 					Line l = new Line(line);
 					if(l.get_type().equals("T_clock_to_Q")){
 						String clock = l.get_value("clock");
 						if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
+						//Add input 
+						String[] inputs = l.get_value("port").split(" ");
 						String[] outputs = l.get_value("port").split(" ");
 						double secondDelay = Double.parseDouble(l.get_value("max"));
 						int picoSecondDelay = (int)Math.round(secondDelay*Math.pow(10, 12));
-						for(String output:outputs){
-							if(output.contains("[") || output.contains("]")) ErrorLog.print("Wrong output format " + output);
-							current.add_clock_to_output(clock, output, picoSecondDelay);
+						
+						for(String input:inputs){
+							if(input.contains("[") || input.contains("]")) ErrorLog.print("Wrong input format " + input);
+							for(String output:outputs){
+								if(output.contains("[") || output.contains("]")) ErrorLog.print("Wrong output format " + output);
+								current.add_clock_to_input_output(clock, input, output, picoSecondDelay);
+							}
 						}
 					}else{
 						ErrorLog.print("This line should have type T_clock_to_Q instead of " + l.get_type() + " | " + line);
@@ -243,16 +281,56 @@ public class Architecture {
 					Line l = new Line(line);
 					if(l.get_type().equals("T_setup")){
 						String[] inputs = l.get_value("port").split(" ");
+						String[] outputs = l.get_value("port").split(" ");
 						String clock = l.get_value("clock");
 						if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
 						double secondDelay = Double.parseDouble(l.get_value("value"));
 						int picoSecondDelay = (int)Math.round(secondDelay*Math.pow(10, 12));
 						for(String input:inputs){
 							if(input.contains("[") || input.contains("]")) ErrorLog.print("Wrong input format " + input);
-							current.add_setup(input, clock, picoSecondDelay);
+							for(String output:outputs){
+								if(output.contains("[") || output.contains("]")) ErrorLog.print("Wrong output format " + output);
+								current.add_setup(input, output, clock, picoSecondDelay);
+							}
 						}
+
 					}else{
 						ErrorLog.print("This line should have type T_setup instead of " + l.get_type() + " | " + line);
+					}
+					//else if(line.contains("<T_setup")){
+					//	Line l = new Line(line);
+					//	if(l.get_type().equals("T_setup")){
+					//		String[] inputs = l.get_value("port").split(" ");
+					//		String clock = l.get_value("clock");
+					//		if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
+					//		double secondDelay = Double.parseDouble(l.get_value("value"));
+					//		int picoSecondDelay = (int)Math.round(secondDelay*Math.pow(10, 12));
+					//		for(String input:inputs){
+					//			if(input.contains("[") || input.contains("]")) ErrorLog.print("Wrong input format " + input);
+					//			current.add_setup(input, clock, picoSecondDelay);
+					//		}
+					//	}else{
+					//		ErrorLog.print("This line should have type T_setup instead of " + l.get_type() + " | " + line);
+					//	}
+				}else if(line.contains("<T_hold")){
+					Line l = new Line(line);
+					if(l.get_type().equals("T_hold")){
+						String[] inputs = l.get_value("port").split(" ");
+						String[] outputs = l.get_value("port").split(" ");
+						String clock = l.get_value("clock");
+						if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
+						double secondDelay = Double.parseDouble(l.get_value("value"));
+						int picoSecondDelay = (int)Math.round(secondDelay*Math.pow(10, 12));
+						
+						for(String input:inputs){
+							if(input.contains("[") || input.contains("]")) ErrorLog.print("Wrong input format " + input);
+							for(String output:outputs){
+								if(output.contains("[") || output.contains("]")) ErrorLog.print("Wrong output format " + output);
+								current.add_hold(input, output, clock, picoSecondDelay);
+							}
+						}
+					}else{
+						ErrorLog.print("This line should have type T_hold instead of " + l.get_type() + " | " + line);
 					}
 				//Delay matrix
 				}else if(line.contains("<delay_matrix")){
@@ -361,9 +439,9 @@ public class Architecture {
 								ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
 								ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
 								
-								if(inputPins.size() != outputPins.size()){
-									ErrorLog.print("The number of input pins is not equal to the number of output pins in direct connection | input pins: " + inputPins.size() + " | output pins: " + outputPins.size());
-								}
+							//	if(inputPins.size() != outputPins.size()){
+							//		ErrorLog.print("The number of input pins is not equal to the number of output pins in direct connection | input pins: " + inputPins.size() + " | output pins: " + outputPins.size());
+							//	}
 								for(int p=0;p<inputPins.size();p++){
 									Pin inputPin = inputPins.get(p);
 									Pin outputPin = outputPins.get(p);
@@ -560,11 +638,15 @@ public class Architecture {
 			}
 			//Assign blif pins
 			for(String blifName:this.blifBlocks.keySet()){
+				//Output.println("Blif name is " + blifName);
 				for(Block blifBlock:this.blifBlocks.get(blifName)){
 					for(Port inputPort:blifBlock.get_input_and_clock_ports()){
+						///Output.println("Port name is " + inputPort.get_name());
 						for(Pin inputPin:inputPort.get_pins()){
+							//Output.println("Pin name is " + inputPin.get_name());
 							if(!this.blifPins.containsKey(inputPin.get_name())){
 								this.blifPins.put(inputPin.get_name(), new ArrayList<Pin>());
+								//Output.println("When am i true ");
 							}
 							this.blifPins.get(inputPin.get_name()).add(inputPin);
 						}
@@ -591,6 +673,7 @@ public class Architecture {
 	}
 	private String process_block_name(String blockName, HashMap<String,Block> interconnectedBlocks){
 		if(blockName.contains("[") && blockName.contains("]") && blockName.contains(":")){
+			
 			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
 			int startNum = Integer.parseInt(blockName.substring(blockName.indexOf("[")+1,blockName.indexOf(":")));
 			int endNum = Integer.parseInt(blockName.substring(blockName.indexOf(":")+1,blockName.indexOf("]")));
@@ -599,9 +682,9 @@ public class Architecture {
 				endNum = startNum;
 				startNum = temp;
 			}
-			if(Integer.parseInt(block.get_value("num_pb")) != (endNum - startNum + 1)){
-				ErrorLog.print("Non symmetric connections for block " + blockName);
-			}
+			//if(Integer.parseInt(block.get_value("num_pb")) != (endNum - startNum + 1)){
+			//	ErrorLog.print("Non symmetric connections for block " + blockName);
+			//}
 			return blockName.substring(0,blockName.indexOf("["));
 		}else if(blockName.contains("[") && blockName.contains("]") && !blockName.contains(":")){
 			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
@@ -704,7 +787,7 @@ public class Architecture {
 		for(int i=0; i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("layout") && line.contains("width") && line.contains("height")){
-				this.lines.set(i, "<layout auto=\"1.35\"/>");
+				this.lines.set(i, "<layout auto=\"1.35\"/>"); //Changed
 			}
 		}
 	}
@@ -719,7 +802,7 @@ public class Architecture {
 		
 		this.get_models();
 		this.get_complex_blocks(false);
-		
+				
 		//This function removes unused blocks and modes from the architecture
 		HashSet<String> unremovableBlocks = new HashSet<String>();
 		unremovableBlocks.add("io");
@@ -727,20 +810,26 @@ public class Architecture {
 		unremovableBlocks.add("dell");
 		unremovableBlocks.add("pad");
 		unremovableBlocks.add("inpad");
+		//unremovableBlocks.add("stratixiv_lcell");
+		//unremovableBlocks.add("lcell_comb");
+		//unremovableBlocks.add("Huawei_LUT");
+		unremovableBlocks.add("carry");
+		//Output.println("unremovable blocks in ligh arch " + unremovableBlocks);
 		
 		this.analyze_blocks(usedModelsInNetlist, unremovableBlocks);
-		
 		HashMap<String, ArrayList<String>> models = new HashMap<String, ArrayList<String>>();
 		ArrayList<String> device = new ArrayList<String>();
 		boolean modelLines = false;
 		boolean deviceLines = false;
+		//ADD IF CONDITION
+		this.removedModels.remove("stratixiv_lcell_comb");
 		for(int i=0;i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("<models>")){
 				modelLines = true;
 			}else if(line.contains("</models>")){
 				modelLines = false;
-				deviceLines = true;
+				deviceLines = true; ///OTHER PARTS OF THE ARCHITECTURE
 			}else if(line.contains("<complexblocklist>")){
 				deviceLines = false;
 			}else if(modelLines){
@@ -786,10 +875,14 @@ public class Architecture {
 		for(String d:device){
 			lightArch.add(d);
 		}
+
+		//IF THIS.COMPLEX BLOCKS DOESNT CONTAIN ICELL COMB --ADD THE LINES DIRECTLY
 		lightArch.add("<complexblocklist>");
 		for(Block block:this.complexBlocks){
 			lightArch.addAll(block.toStringList());
-		}
+		//	Output.println("blocks in arch are  " + block.get_name());
+			}
+		
 		lightArch.add("</complexblocklist>");
 		lightArch.add("</architecture>");
 		this.write_arch_file(lightArch,"arch.light.xml");
@@ -820,7 +913,10 @@ public class Architecture {
 		unremovableBlocks.add("pll_normal");
 		
 		unremovableBlocks.add("LAB");
-
+		//unremovableBlocks.add("stratixiv_lcell");
+		unremovableBlocks.add("stratixiv_lcell");
+		unremovableBlocks.add("lcell_comb");
+		
 		unremovableBlocks.add("DSP");
 		unremovableBlocks.add("full_DSP");
 		unremovableBlocks.add("half_DSP");
@@ -839,6 +935,7 @@ public class Architecture {
 		unremovableBlocks.add("ram");
 		unremovableBlocks.add("ram_block_M144K");
 		unremovableBlocks.add("B144K");
+		//Output.println("usedModelsInNetlist " + usedModelsInNetlist + " unremovableBlocks " + unremovableBlocks);
 		this.analyze_blocks(usedModelsInNetlist, unremovableBlocks);
 		
 		//PACK PATTERNS
@@ -895,6 +992,7 @@ public class Architecture {
 		ArrayList<String> device = new ArrayList<String>();
 		boolean modelLines = false;
 		boolean deviceLines = false;
+		this.removedModels.remove("stratixiv_lcell_comb");
 		for(int i=0;i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("<models>")){
@@ -916,6 +1014,7 @@ public class Architecture {
 						}while(!line.contains("</model>"));
 						models.put(l.get_value("name"), temp);
 					}else{
+						
 						do{
 							line = this.lines.get(++i);
 						}while(!line.contains("</model>"));
@@ -961,8 +1060,10 @@ public class Architecture {
 		if(M9K != null) M9K.modify_blif_model_names("_M9K");
 		if(M144K != null) M144K.modify_blif_model_names("_M144K");
 		
+	
 		for(Block block:this.complexBlocks){
 			packArch.addAll(block.toStringList());
+			//System.out.println(block.toStringList());
 		}
 		packArch.add("</complexblocklist>");
 		packArch.add("</architecture>");
@@ -970,6 +1071,7 @@ public class Architecture {
 		
 		Output.newLine();
 	}
+	
 	private void analyze_blocks(Set<String> usedModels, HashSet<String> unremovableBlocks){
 		//TOP LEVEL
 		ArrayList<Element> currentLevel = new ArrayList<Element>();
@@ -977,9 +1079,10 @@ public class Architecture {
 		
 		HashSet<Element> removedBlocks = new HashSet<Element>();
 		for(Element block:this.complexBlocks){
+		//	Output.println("Complex block" + block.get_name());
 			if(unremovableBlocks.contains(block.get_name())){
 				nextLevel.add(block);
-			}else if(block.remove_block(usedModels, this.modelSet)){
+			  }else if(block.remove_block(usedModels, this.modelSet)){
 				removedBlocks.add(block);
 			}else{
 				nextLevel.add(block);
@@ -988,19 +1091,31 @@ public class Architecture {
 		for(Element removedBlock:removedBlocks){
 			this.complexBlocks.remove(removedBlock);
 			this.removedModels.addAll(removedBlock.get_blif_models());
+			Output.println("Removed block" + removedBlock.get_blif_models());
 		}
 
 		while(!nextLevel.isEmpty()){
 			currentLevel = nextLevel;
 			nextLevel = new ArrayList<Element>();
 			for(Element block:currentLevel){
+				//block.add_child("lcell_comb");
 				Set<Element> children = new HashSet<Element>(block.get_children());
+				
+				//Output.println(" unremovableBlocks child is " + unremovableBlocks );
 				for(Element child:children){
 					if(unremovableBlocks.contains(child.get_name())){
 						nextLevel.add(child);
+						//Output.println(" child in 1st level is " + child.get_name() );
+						//Output.println(" Unremovable child is " + child.get_name() );
 					}else if(child.remove_block(usedModels, this.modelSet)){
+						if(unremovableBlocks.contains(child.get_name())){
+						nextLevel.add(child);
+						}
+						else {
 						block.remove_child(child);
 						this.removedModels.addAll(child.get_blif_models());
+						}
+						//Output.println("blif model" + child.get_blif_models()); REMOVES THE MODELS ONLY
 					}else{
 						nextLevel.add(child);
 					}
@@ -1087,9 +1202,11 @@ public class Architecture {
 		}else if(!sourcePin.has_block() && sinkPin.has_block()){
 			sourceLight = ".input" + "." + sourcePin.get_port_name();
 			sinkLight = sinkPin.get_light_architecture_name();
+			
 		}else if(!sourcePin.has_block() && !sinkPin.has_block()){
 			sourceLight =".input" + "." + sourcePin.get_port_name();
 			sinkLight = ".output" + "." + sinkPin.get_port_name();
+			
 		}
 		
 		Integer connectionDelay = null;
@@ -1100,6 +1217,7 @@ public class Architecture {
 				if(sourcePin.has_block() && sinkPin.has_block()){
 					source = sourcePin.get_detailed_architecture_name();
 					sink = sinkPin.get_detailed_architecture_name();
+					Output.println("Source pin and sink pin is " + source + " " + sink);
 				}else if(sourcePin.has_block() && !sinkPin.has_block()){
 					source = sourcePin.get_detailed_architecture_name();
 					sink = ".output" + "." + sinkPin.get_port_name() + "[" +  sinkPin.get_pin_num() + "]";
