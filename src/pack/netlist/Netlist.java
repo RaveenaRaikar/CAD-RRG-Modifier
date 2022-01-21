@@ -26,6 +26,7 @@ import pack.util.Info;
 import pack.util.Output;
 import pack.util.Timing;
 import pack.util.Util;
+import pack.netlist.DieLevelNetlist;
 
 public class Netlist{
 	private HashMap<Integer,B> blocks;
@@ -53,9 +54,74 @@ public class Netlist{
 	private int terminalCount = 0;
 
 	private Simulation simulation;
-
+	private int partnum = 0;
 	public Netlist(Simulation simulation){
 		this.simulation = simulation;
+
+		this.data = new Data();
+		
+		//TODO:Change to the partitioning number
+		this.set_blif(simulation.getStringValue("circuit"));
+
+		this.blocks = new HashMap<Integer,B>();
+		this.nets = new HashMap<Integer,N>();
+		this.terminals = new HashMap<Integer,T>();
+
+		this.models = new HashMap<String,Model>();
+		this.blockCount = new HashMap<String,Integer>();
+		
+		this.read_blif();
+
+		post_blif_netlist_processing();
+		Output.newLine();
+		
+		this.parent = null;
+		this.children = new ArrayList<Netlist>();
+		
+		this.level = 0;
+		this.number = 0;
+		
+		Output.println(this.toInfoString());
+		Output.print(this.toTypesString());
+		Output.newLine();
+		
+		Output.println("\tClocks:");
+		for(String clock:this.clocks){
+			int c = 0;
+			for(B b:this.get_blocks()){
+				if(b.has_clock()){
+					if(b.get_clock().equals(clock)){
+						c += 1;
+					}
+				}
+			}
+			Output.println("\t\t" + clock + ": " + c + " blocks");
+		}
+		Output.newLine();
+		
+		int i = 0, o = 0;
+		for(T t:this.terminals.values()){
+			if(t.is_input_type()){
+				i += 1;
+			}
+			if(t.is_output_type()){
+				o += 1;
+			}
+		}
+		if(i+o != this.terminals.size()){
+			ErrorLog.print("The sum of inputs and ouputs is not equal to the total number of terminals \n\tIn and Out = " + (i+o) + "\n\tTerminals = " + this.terminals.size());
+		}
+		Output.println("\tInputs: " + i);
+		Output.println("\tOutputs: " + o);
+		Output.newLine();
+
+		this.hierarchyIdentifier = "";
+
+		this.trim();
+	}
+	public Netlist(Simulation simulation, int partnum){
+		this.simulation = simulation;
+		this.partnum = partnum;
 
 		this.data = new Data();
 		this.set_blif(simulation.getStringValue("circuit"));
@@ -116,17 +182,34 @@ public class Netlist{
 
 		this.trim();
 	}
-
 	//// BLIF READER ////
 	public void read_blif(){
 		Timing blifTiming = new Timing();
 		blifTiming.start();
 		Output.print("Read " + this.get_blif());
-
+		String file;
+		
+		//Reading the original netlist
+		if(Partition.diePart == true)
+		{
+		Output.println("\nThe original blif is executed");
+		file = this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("circuit") + ".blif";
+		//Reading the partitioning netlist 1
+		}
+		else
+		{
+			Output.println("The partitioned blif is executed");
+		file =this.simulation.getStringValue("vpr_folder") + "vpr/files/" + this.simulation.getStringValue("circuit") + "_" + this.simulation.getSimulationID() +"_die_" + this.partnum + ".blif";
+		//Reading the partitioning netlist 2
+		//partnum
+		}
+		
+		
 		//Read file
 		Timing readFile = new Timing();
 		readFile.start();
-		String [] lines = read_blif_file(this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("circuit") + ".blif");
+		String [] lines = read_blif_file(file);
+		//String [] lines = read_blif_file(this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("circuit") + ".blif");
 		readFile.stop();
 		
 		HashSet<String> inputs = get_input_terminals(lines);
@@ -174,7 +257,11 @@ public class Netlist{
 				this.assign_truth_table(previous, truthTable);
 				previous = null;
 				truthTable = "";
-								
+				//This is because the model initially considered only functions defined under ".model", now we are adding
+				//.names function from the architecture as well. Hence this function will be activated only for the 
+				//first occurence of ".names"
+				
+				//TODO: Add support for 5 input lut as well
 				if(!this.has_model(".names")){
 					//Output.println("AM I True for blink o led??");
 					Model model = new Model(".names", this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
@@ -190,8 +277,7 @@ public class Netlist{
 				
 				Model model = this.get_model(".names");
 				model.increment_occurences();
-				
-				
+				//Blocknumber and net number is only incremented from .names onwards
 				words = line.split(" ");
 				B b = new B(words[words.length-1], blockNumber++, model.get_name(), null, null);
 				this.add_block(b);
@@ -208,7 +294,8 @@ public class Netlist{
 							this.add_net(n);
 							netMap.put(netName, n);
 						}
-						P p = new P(b, n, "in[" + j + "]", false, true, 1, null, null, false, false);
+						//TO RANGE THE LUT INPUTS FROM 0 TO 5
+						P p = new P(b, n, "in[" + (j-1) + "]", false, true, 1, null, null, false, false);
 						b.add_input_pin("in", p);
 						n.add_sink(p);
 					}
@@ -235,8 +322,10 @@ public class Netlist{
 				this.assign_truth_table(previous, truthTable);
 				previous = null;
 				truthTable = "";
-				
+				//Output.println("line is " + line);
 				words = line.split(" ");
+			//	Output.println("The words are " + Arrays.toString(words));
+			//	Output.println("The size of the array is " + words.length);
 				
 				//Model
 				Model model = this.get_model(words[1]);
@@ -245,23 +334,29 @@ public class Netlist{
 				
 				//Name
 				String name = null;
+				//for(int j=2; j<words.length;j++){
 				for(int j=2; j<words.length;j++){
+				//	Output.println("The value of j is " + j);
 					String[] gate = words[j].split("=");
+				//	Output.println("The gate are " + Arrays.toString(gate));
 					if(gate.length != 2){
 						ErrorLog.print("A gate should contain two elements, this gate contains only " + gate.length + " => " + words[j]);
 					}
 					String port = gate[0];
 					netName = gate[1];
+				//	Output.println("The port is " + port );
+					//Output.println("the net name is " + netName);
 					
 					if(port.endsWith("]")){
 						port = port.substring(0, port.lastIndexOf("["));
 					}
 					if(model.is_output(port)){
+						//The ports in the blif model must be defined in the same manner as the ports in the ".model" section
 						if(!model.get_first_output_port().equals(port)){
 							ErrorLog.print("The first output port of the blif primitive " + port + " is not the first output port of the model " + model.get_first_output_port());
 						}
 						if(name == null){
-							name = netName;
+							name = netName; //Breaks after finding the first output port
 							break;
 						}else{
 							ErrorLog.print("This situation should never occur, name is net of first output");
@@ -269,6 +364,7 @@ public class Netlist{
 					}
 				}
 				if(name == null){
+					Output.println("The line is " + line);
 					ErrorLog.print("No name found");
 				}
 				
@@ -293,6 +389,7 @@ public class Netlist{
 				}
 				
 				//Block
+				//First output port, increment block number, pass the model type
 				B b = new B(name, blockNumber++, model.get_name(), clock, null);
 				this.add_block(b);
 				
@@ -319,10 +416,12 @@ public class Netlist{
 						if(model.is_input(port)){
 							N n = netMap.get(netName);
 							if(n == null){
+								//All the inputs will be considered as nets and the net number will be incremented
 								n = new N(netName, netNumber++);
 								this.add_net(n);
 								netMap.put(netName, n);
 							}
+							//Block name is defined with respect to the output hence source to the block is outputs and sink to the block is inputs
 							P p = new P(b, n, gate[0], false, true, 1, null, null, false, b.is_sequential());
 							n.add_sink(p);
 							b.add_input_pin(port, p);	
@@ -349,7 +448,7 @@ public class Netlist{
 				this.assign_truth_table(previous, truthTable);
 				previous = null;
 				truthTable = "";
-				
+				//First occurence of latch model
 				if(!this.has_model(".latch")){
 					
 					Model model = new Model(".latch", this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
@@ -364,6 +463,8 @@ public class Netlist{
 				model.increment_occurences();
 				
 				words = line.split(" ");
+				
+				//Latches are defined by their output connections. The block name is set to be the output.
 				B b = new B(words[2], blockNumber++, model.get_name(), words[4], null);
 				this.add_block(b);
 				
@@ -478,7 +579,11 @@ public class Netlist{
 					}else{
 						if(line.contains(".end"))
 						{
+							//To remove the final model dependency
+							this.assign_truth_table(previous, truthTable);
 							truthTable = truthTable +"\n";
+							//Output.println("Truth table is  " + truthTable);
+							
 						}
 						}
 						// nbhgOutput.println("AM I TRUE?????");
@@ -502,7 +607,9 @@ public class Netlist{
 			boolean endOfLine = false;
 			while(line != null){
 				if(line.length() > 0){
+					//Comments in the blif file are #
 					if(!(line.charAt(0) == '#')){
+						// Double \ to escape
 						if(line.charAt(line.length()-1)=='\\'){
 							line = line.substring(0,line.length()-1);
 						}else{
@@ -631,11 +738,12 @@ public class Netlist{
 	private void assign_models(String[] lines){
 		//TODO Mixed width ram is currently not supported
 		ArrayList<String> mixedWidthRamBlockTypes = new ArrayList<String>();
+		/*
 		mixedWidthRamBlockTypes.add("stratixiv_ram_block.opmode{dual_port}.output_type{reg}");
 		mixedWidthRamBlockTypes.add("stratixiv_ram_block.opmode{dual_port}.output_type{comb}");
 		mixedWidthRamBlockTypes.add("stratixiv_ram_block.opmode{bidir_dual_port}.output_type{reg}");
 		mixedWidthRamBlockTypes.add("stratixiv_ram_block.opmode{bidir_dual_port}.output_type{comb}");
-		
+		*/
 		boolean topModel_passed = false;
 		for(int i=0; i<lines.length;i++) {
 			String line = lines[i];
@@ -653,6 +761,7 @@ public class Netlist{
 					this.add_model(model);
 					line = lines[++i];
 					while(!line.contains(".end")){
+						//Add all the input ports and pins to each of the model
 						if(line.contains(".inputs")){
 							String[] ports = line.split(" ");
 							for(int k=1;k<ports.length;k++){
@@ -660,6 +769,7 @@ public class Netlist{
 								if(port.contains("[") && port.contains("]")){
 									port = port.substring(0,port.indexOf("["));
 								}
+								//Output.println("The port is " + port + "The model is " + model.get_name());
 								model.add_input_port(port);
 								//}
 							}
@@ -673,6 +783,7 @@ public class Netlist{
 								model.add_output_port(port);
 							}
 						}else{
+							//To add the black box line
 							model.add_to_internals(line);
 						}
 						line = lines[++i];
@@ -681,6 +792,8 @@ public class Netlist{
 			}
 		}
 	}
+	// Buffered nets contain the same data at the input and output. TODO: Check if it is valid for invertor gate
+	
 	private HashMap<String,String> get_buffered_nets(String[]lines, HashSet<String> inputs, HashSet<String> outputs, HashSet<String> latch_inputs, HashSet<String> latch_outputs){
 		HashMap<String,String> bufferedNets = new HashMap<String,String>();
 		boolean removeBufferedNets = true;
@@ -785,6 +898,7 @@ public class Netlist{
 		return this.nets.containsKey(n.get_number());
 	}
 	private void add_block(B b){
+		//Checking if the block number is already added in the hashmap
 		if(this.blocks.containsKey(b.get_number())){
 			Output.println("The netlist already contains a block with number " + b.get_number() + " and name " + b.toString());
 		}
@@ -793,6 +907,7 @@ public class Netlist{
 		if(!this.blockCount.containsKey(blockType)){
 			this.blockCount.put(blockType,0);
 		}
+		//Add each occurence of block type to the hashmap
 		this.blockCount.put(blockType, this.blockCount.get(blockType)+1);
 	}
 	private void remove_block(B b){
@@ -1040,7 +1155,7 @@ public class Netlist{
 	
 	
 	///DUMMY blif writer
-	public void writeBlif_dummy(String folder, int num, int simulationID){
+	public void writeBlif_dummy(String folder, int num, int simulationID,boolean dielevel){
 		
 		Blif blif = new Blif(folder, this.get_blif(), num, simulationID);	
 		//Output.println("The blif file is " + this.get_blif());
@@ -1094,7 +1209,7 @@ public class Netlist{
 					if(t.is_cut_type()){
 						boolean outputRequired = true;
 						for(B b:outputNet.get_sink_blocks()){
-							if(b.get_type().contains("stratixiv_ram_block")){
+							if(b.get_type().contains("port_ram")){
 								outputRequired = false;
 							}
 						}
@@ -1139,11 +1254,11 @@ public class Netlist{
 		//Net for unconnected input pins
 		blif.add_gate(".names unconn\n0");
 		
-		blif.write();
+		blif.write(dielevel);
 	}
 
 	//// BLIF WRITER ////
-	public void writeBlif(String folder, int num, Partition partition, int simulationID){
+	public void writeBlif(String folder, int num, Partition partition, int simulationID, boolean dielevel){
 		
 		Blif blif = new Blif(folder, this.get_blif(), num, simulationID);	
 
@@ -1195,7 +1310,7 @@ public class Netlist{
 					if(t.is_cut_type()){
 						boolean outputRequired = true;
 						for(B b:outputNet.get_sink_blocks()){
-							if(b.get_type().contains("stratixiv_ram_block")){
+							if(b.get_type().contains("port_ram")){
 								outputRequired = false;
 							}
 						}
@@ -1240,9 +1355,9 @@ public class Netlist{
 		//Net for unconnected input pins
 		blif.add_gate(".names unconn\n0");
 		
-		blif.write();
+		blif.write(dielevel);
 	}
-	public static void write_blif(String folder, int num, Set<B> floatingBlocks, String blifName, HashMap<String,Model> models, int simulationID){
+	public static void write_blif(String folder, int num, Set<B> floatingBlocks, String blifName, HashMap<String,Model> models, int simulationID, boolean dielevel){
 		Blif blif = new Blif(folder, blifName, num, simulationID);	
 		
 		//Inputs
@@ -1273,7 +1388,7 @@ public class Netlist{
 		for(B floatingBlock:floatingBlocks){
 			floatingBlock.to_blif_string(blif, models.get(floatingBlock.get_type()));
 		}		
-		blif.write();
+		blif.write(dielevel);
 	}
 	public HashSet<N> get_input_nets(){
 		HashSet<N> inputNets = new HashSet<N>();
@@ -1840,23 +1955,52 @@ public class Netlist{
 		Output.println("DSP pre partition:");
 		HashSet<ArrayList<B>> dspMolecules = new HashSet<ArrayList<B>>();
 		
+		//HashSet<B> dspMolecules = this.get_dsp_blocks();
+		//this.print_ram_blocks(ramBlocks);
+		
+		//KOIOS ARCH FILE DSP MODULES
+	   // 1. 27x27 fixed point multiplier (multiply)
+	   // 2. 27x27 fixed point mac (mac_int)
+	   // 3. Two 18x19 fixed point multipliers (multiply)
+	   // 3. Two 18x19 fixed point macs (mac_int)
+	   // 4. Four 9x9 fixed point multipliers (multiply)
+	   // 5. Four 9x9 fixed point macs (mac_int)
+	   // 6. 27x27 plus 64 mode (mult_add_mode_27_27_64/mult_add_int). 27 * 27 + 64 -> 64. result = ax * ay + bx + chainin. chainout = result 
+	   // 7. 18x19 sum-of-2 mode (sop_2_mode/int_sop_2) resulta = (bx * by) + (ax * ay) + chainin. chainout = resulta    
+	   // 8. 18x19 plus 36 mode (mult_add_mode_18_19_36/mult_add_int). 18 * 19 + 36 -> 64. resulta = ax * ay + bx + chainin. chainout = resulta 
+	   // 9. 9x9 sum-of-4 mode (sop_4_mode/int_sop_4) resulta = (dx * dy) + (cx * cy) + (bx * by) + (ax * ay) + chainin. chainout = resulta 
+	   // 10. 9x9 sum-of-4 accum mode (sop_4_accum_mode/int_sop_accum_4) resulta = (dx * dy) + (cx * cy) + (bx * by) + (ax * ay) + chainin + accumulator. chainout = resulta 
+
+		//TODO:Add support for the mult, add, sum mode.
+		
 		HashSet<B> multipliers = new HashSet<B>();
 		HashSet<B> usedMultipliers = new HashSet<B>();
+		ArrayList<B> dspMolecule = new ArrayList<B>();
 		for(B mult:this.get_blocks()){
-			if(mult.get_type().contains("stratixiv_mac_mult")){
+			//Output.println("the blocks in mult are " + mult.get_name());
+			//if(mult.get_type().contains("stratixiv_mac_mult")){////
+			//	multipliers.add(mult);
+			//}
+			//Huawei Specific arch file
+			if(mult.get_type().contains("multiply")){
 				multipliers.add(mult);
+				//Output.println("The number of multipliers is " + multipliers.size());
 			}
 		}
 		for(B acc:this.get_blocks()){
-			if(acc.get_type().contains("stratixiv_mac_out")){
-				ArrayList<B> dspMolecule = new ArrayList<B>();
+			//if(acc.get_type().contains("stratixiv_mac_out")){
+			if(acc.get_type().contains("mac_int")){
+				
 				dspMolecule.add(acc);
 				for(String inputPort:acc.get_input_ports()){
-					if(inputPort.equals("dataa") || inputPort.equals("datab") || inputPort.equals("datac") || inputPort.equals("datad")){
+				//	Output.println("The input ports are " + inputPort);
+					//if(inputPort.equals("dataa") || inputPort.equals("datab") || inputPort.equals("datac") || inputPort.equals("datad")){
+					if(inputPort.equals("a") || inputPort.equals("b")){
 						B mult = null;
 						for(P inputPin:acc.get_input_pins(inputPort)){
 							if(inputPin.get_net().get_source_pin().has_block()){
-								if(inputPin.get_net().get_source_pin().get_block().get_type().contains("stratixiv_mac_mult")){
+								//if(inputPin.get_net().get_source_pin().get_block().get_type().contains("stratixiv_mac_mult")){
+								if(inputPin.get_net().get_source_pin().get_block().get_type().contains("multiply")){
 									if(mult == null){
 										mult = inputPin.get_net().get_source_pin().get_block();
 									}else if(inputPin.get_net().get_source_pin().get_block().get_number() != mult.get_number()){
@@ -1884,14 +2028,44 @@ public class Netlist{
 		}
 		if(usedMultipliers.size() != multipliers.size()){
 			Output.println(multipliers.size() - usedMultipliers.size() + " multipliers are not connected to an accumulator");
+			//dspMolecules.add(multipliers);
+			//IF ONLY MULTIPLIERS EXIST IN THE NETLIST THEN ADD THEM TO THE DSP MOLECULE.
+			for(B mult:multipliers){
+			//	Model model = new Model("dsp", this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
+			//	this.add_model(model);
+			//	this.get_model("dsp").increment_occurences() ;
+			//}
+				dspMolecule.add(mult);
+				if(!dspMolecule.isEmpty()){
+					dspMolecules.add(dspMolecule);
+				
+				}
+			}
+				//this.add_block(mult);
+				/*for(B atom:atoms){
+					this.remove_block(atom);
+					this.get_models().get(atom.get_type()).decrement_occurences();
+				}
+				this.add_block(molecule);
+				if(!this.has_model(moleculeType)){
+					Model model = new Model(moleculeType, this.simulation.getStringValue("result_folder") + this.simulation.getStringValue("architecture"));
+					this.add_model(model);
+				}
+				this.get_model(moleculeType).increment_occurences();*/
+			
+			//Output.println("The size of dsp molecule is " + dspMolecules.size());
+			
+	
 		}
-		Output.println("\tHALF DSP: " + dspMolecules.size());
+		Output.println("\t DSP: " + dspMolecules.size());
 		Output.newLine();
 		
-		for(ArrayList<B> atoms:dspMolecules){
-			this.pack_to_molecule(atoms, "HALF_DSP");
+		if((multipliers.size() - usedMultipliers.size()) == 0) {
+			for(ArrayList<B> atoms:dspMolecules){
+				this.pack_to_molecule(atoms, "dsp");
+			}
 		}
-		
+		//this.add_block(dspMolecules);
 		t.stop();
 		Output.println("\tTook " + t.toString());
 		
@@ -1901,11 +2075,23 @@ public class Netlist{
 	private HashSet<B> get_ram_blocks(){
 		HashSet<B> ramBlocks = new HashSet<B>();
 		for(B b:this.get_blocks()){
-			if(b.get_type().contains("stratixiv_ram_block")){
+			//Output.println("The blocks are " + b.get_type());
+			if(b.get_type().contains("port_ram")){
+			//	Output.println("This is true");
 				ramBlocks.add(b);
 			}
 		}
 		return ramBlocks;
+	}
+	// PRE PACK DSP FOR KOIOS BENCHMARKS
+	private HashSet<B> get_dsp_blocks(){
+		HashSet<B> dspBlocks = new HashSet<B>();
+		for(B b:this.get_blocks()){
+			if(b.get_type().contains("multiply")){
+				dspBlocks.add(b);
+			}
+		}
+		return dspBlocks;
 	}
 	private void print_ram_blocks(HashSet<B> ramBlocks){
 		Output.println("\tRAM Slices:");
@@ -1921,6 +2107,21 @@ public class Netlist{
 		}
 		Output.newLine();
 	}
+	private void print_dsp_blocks(HashSet<B> ramBlocks){
+		Output.println("\tDSP Slices:");
+		HashMap<String,Integer> ramTypes = new HashMap<String,Integer>();
+		for(B ram:ramBlocks){
+			ramTypes.put(ram.get_type(), 0);
+		}
+		for(B ram:ramBlocks){
+			ramTypes.put(ram.get_type(), ramTypes.get(ram.get_type()) + 1);
+		}
+		for(String type:ramTypes.keySet()){
+			Output.println("\t\t" + Util.fill(ramTypes.get(type), 6) + " " + type);
+		}
+		Output.newLine();
+	}
+	
 	private HashMap<String,ArrayList<B>> get_ram_groups(HashSet<B> ramBlocks){
 		HashMap<String,ArrayList<B>> hashedRam = new HashMap<String,ArrayList<B>>();
 		for(B ram:ramBlocks){
@@ -1937,13 +2138,15 @@ public class Netlist{
 		if(printHashedRam){
 			Output.println("\tTOTAL NUMBER OF HASHES: " + hashedRam.size());
 			for(String hash:hashedRam.keySet()){
-				Model model = this.get_model(hashedRam.get(hash).get(0).get_type().replace("_M9K", "").replace("_M144K", ""));
-				Output.println("\t\t" + Util.fill(hashedRam.get(hash).size(), 5) + "ram blocks | " + Util.fill(model.get_stratixiv_ram_slices_9(), 2) + " M9K | " + Util.fill(model.get_stratixiv_ram_slices_144(), 2) + " M144K" + " | " + hashedRam.get(hash).get(0).get_type() + " | " + hash);	
+				//Model model = this.get_model(hashedRam.get(hash).get(0).get_type().replace("_M9K", "").replace("_M144K", ""));
+				Model model = this.get_model(hashedRam.get(hash).get(0).get_type());
+				//Output.println("The hashed ram is " + model.get_name());
+				Output.println("\t\t" + Util.fill(hashedRam.get(hash).size(), 5) + "ram blocks | " + Util.fill(model.get_ram_slices(), 2) + " M20K | " + " | " + hashedRam.get(hash).get(0).get_type() + " | " + hash);	
 			}
 			Output.newLine();
 		}
 	}
-	private String get_best_hash_for_M9K_to_M144K_move(HashSet<String> availableHashes, HashMap<String, ArrayList<B>> hashedRam){
+	/*private String get_best_hash_for_M9K_to_M144K_move(HashSet<String> availableHashes, HashMap<String, ArrayList<B>> hashedRam){
 		String bestHash = null;
 		double bestGain = 0.0;
 		for(String hash:availableHashes){
@@ -1962,7 +2165,7 @@ public class Netlist{
 			}
 		}
 		return bestHash;
-	}
+	}*/
 	public ArrayList<B> getBlocksOfType(String type){
 		ArrayList<B> blocks = new ArrayList<B>();
 		for(B b:this.get_blocks()){
@@ -1973,6 +2176,7 @@ public class Netlist{
 		return blocks;
 	}
 	public void pre_pack_ram(Architecture architecture){
+		//KOIOS DOESNT IMPLEMENT DIFFERENT RAM 
 		Timing t = new Timing();
 		t.start();
 		Output.println("RAM pre partition:");
@@ -1985,7 +2189,7 @@ public class Netlist{
 		this.print_hashed_ram(hashedRam);
 		
 		// MAKE M9K AND M144K RAM BLOCK
-		for(B ram:ramBlocks){
+		/*for(B ram:ramBlocks){
 			String origType = ram.get_type();
 			String newType = ram.get_type() + "_M9K";
 			if(this.models.get(origType).get_stratixiv_ram_slices_9() == 0){
@@ -2002,95 +2206,108 @@ public class Netlist{
 			}
 			this.blockCount.put(origType, this.blockCount.get(origType)-1);
 			this.blockCount.put(newType, this.blockCount.get(newType)+1);
-		}
+		}*/
 		
 		///////////////////////////////////////////////////
 		//////////// CALCULATE REQUIRED BLOCKS ////////////
 		int halfDSP = 0;
 		for(B b:this.get_blocks()){
-			if(b.get_type().equals("HALF_DSP")){
+			//Output.println("The blocks are " + b.get_name() + " and its type is " + b.get_type());
+			//TODO: Change from multiply to DSP
+			if(b.get_type().equals("multiply")){
+			//if(b.get_type().equals("dsp")){
+			//if(b.get_type().equals("HALF_DSP")){
 				halfDSP += 1;
 			}
 		}
-		int reqDSP = (int)Math.ceil(halfDSP*0.5);
+		int reqDSP = (int)Math.ceil(halfDSP);
+		//int reqDSP = (int)Math.ceil(halfDSP*0.5);
+		//Output.println("The value of reqDSP is " + reqDSP);
 		
-		int reqM9K = 0;
-		int reqM144K = 0;
+		int req20K = 0;
+		//int reqM9K = 0;
+		//int reqM144K = 0;
 		for(String hash:hashedRam.keySet()){
+			//Output.println("The hashed ram blocks are " + hash);
 			Model model = this.get_model(hashedRam.get(hash).get(0).get_type());
-			if(model.get_stratixiv_ram_slices_9() != 0){
-				reqM9K += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_9());
-			}else{
-				reqM144K += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_144());
+			//Output.print("The model is " + model.get_name());
+			if(model.get_ram_slices() != 0) {
+			//if(model.get_stratixiv_ram_slices_9() != 0){
+				req20K += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_ram_slices());
 			}
 		}
 		
 		//MAKE FPGA
 		FPGA fpga = new FPGA();
+		fpga.set_hardbock_size(architecture.getFPGAdimensionsMap());
 		fpga.set_size(architecture.getSizeX(), architecture.getSizeY());
 		Output.println("\tFIXED FPGA SIZE: " + fpga.sizeX() + " x " + fpga.sizeY());
 		Output.println("\t\tLAB | AV: " + Util.fill(fpga.LAB(), 3));
 		Output.println("\t\tDSP | AV: " + Util.fill(fpga.DSP(), 3) + " | REQ: " + reqDSP);
-		Output.println("\t\tM9K | AV: " + Util.fill(fpga.M9K(), 3) + " | REQ: " + reqM9K);
-		Output.println("\t\tM144K | AV: " + Util.fill(fpga.M144K(), 3) + " | REQ: " + reqM144K);
+		Output.println("\t\tM20K | AV: " + Util.fill(fpga.M20K(), 3) + " | REQ: " + req20K);
+	//	Output.println("\t\tM144K | AV: " + Util.fill(fpga.M144K(), 3) + " | REQ: " + reqM144K);
 		Output.newLine();
 
+		
+		//KOIOS ARCH HAS ONLY ONE TYPE OF RAM BLOCK
 		//ASSIGN M9K RAM BLOCKS T0 M144K RAM BLOCKS IF NECCESARY
-		if(reqM9K > fpga.M9K() && reqM144K < fpga.M144K()){
-			HashSet<String> availableHashes = new HashSet<String>(hashedRam.keySet());
+		//if(reqM9K > fpga.M9K() && reqM144K < fpga.M144K()){
+		//	HashSet<String> availableHashes = new HashSet<String>(hashedRam.keySet());
 			//Output.println("\tPut M9K slices in M144K block:");
-			while(reqM9K > fpga.M9K() && reqM144K < fpga.M144K()){
-				String bestHash = this.get_best_hash_for_M9K_to_M144K_move(availableHashes, hashedRam);
-				if(bestHash == null){
-					ErrorLog.print("Best hash not found, still " + availableHashes.size() + " hashes available");
-				}
-				availableHashes.remove(bestHash);
-				if(bestHash.contains("_M144K"))ErrorLog.print("Only gain with M9K obtained");
-				Model m = this.get_model(hashedRam.get(bestHash).get(0).get_type().replace("_M9K", ""));
-				Integer slices = hashedRam.get(bestHash).size();
-				int M9K = m.get_stratixiv_ram_slices_9();
-				int M144K = m.get_stratixiv_ram_slices_144();
-				reqM9K -= (int)Math.ceil(slices.doubleValue()/M9K);
-				reqM144K += (int)Math.ceil(slices.doubleValue()/M144K);
-				for(B ram:hashedRam.get(bestHash)){
-					String origType = ram.get_type();
-					if(!origType.contains("_M9K"))ErrorLog.print("This type should contain M9K: " + origType);
-					String newType = origType.replace("_M9K", "_M144K");
-					ram.set_type(newType);
-					if(!this.models.containsKey(newType)){
-						Model model = new Model(this.models.get(origType.replace("_M9K", "")), newType);
-						this.add_model(model);
-						this.blockCount.put(newType, 0);
-					}
-					this.models.get(origType).decrement_occurences();
-					this.models.get(newType).increment_occurences();
-					
-					this.blockCount.put(origType, this.blockCount.get(origType)-1);
-					this.blockCount.put(newType, this.blockCount.get(newType)+1);
-				}
+		//	while(reqM9K > fpga.M9K() && reqM144K < fpga.M144K()){
+		//		String bestHash = this.get_best_hash_for_M9K_to_M144K_move(availableHashes, hashedRam);
+		//		if(bestHash == null){
+		//			ErrorLog.print("Best hash not found, still " + availableHashes.size() + " hashes available");
+		//		}
+		//		availableHashes.remove(bestHash);
+		//		if(bestHash.contains("_M144K"))ErrorLog.print("Only gain with M9K obtained");
+		//		Model m = this.get_model(hashedRam.get(bestHash).get(0).get_type().replace("_M9K", ""));
+		//		Integer slices = hashedRam.get(bestHash).size();
+		//		int M9K = m.get_stratixiv_ram_slices_9();
+		//		int M144K = m.get_stratixiv_ram_slices_144();
+		//		reqM9K -= (int)Math.ceil(slices.doubleValue()/M9K);
+		//		reqM144K += (int)Math.ceil(slices.doubleValue()/M144K);
+		//		for(B ram:hashedRam.get(bestHash)){
+		//			String origType = ram.get_type();
+		//			if(!origType.contains("_M9K"))ErrorLog.print("This type should contain M9K: " + origType);
+		//			String newType = origType.replace("_M9K", "_M144K");
+		///			ram.set_type(newType);
+		//			if(!this.models.containsKey(newType)){
+		//				Model model = new Model(this.models.get(origType.replace("_M9K", "")), newType);
+		//				this.add_model(model);
+		//				this.blockCount.put(newType, 0);
+			//		}
+		//			this.models.get(origType).decrement_occurences();
+		//			this.models.get(newType).increment_occurences();
+		//			
+		//			this.blockCount.put(origType, this.blockCount.get(origType)-1);
+		//			this.blockCount.put(newType, this.blockCount.get(newType)+1);
+		//		}
 				
 				//CONTROL
-				if(hashedRam.get(bestHash) == null){
-					ErrorLog.print("Problem with bestHash: " + bestHash);
-				}
-				String type = null;
-				for(B ram:hashedRam.get(bestHash)){
-					if(type == null){
-						type = ram.get_type();
-					}else if(!type.equals(ram.get_type())){
-						ErrorLog.print("Incorrect ram type: \n\tType: " + type + "\n\tRAM: " + ram.get_type());
-					}
-				}
+			//	if(hashedRam.get(bestHash) == null){
+			//		ErrorLog.print("Problem with bestHash: " + bestHash);
+		//		}
+		//		String type = null;
+		//		for(B ram:hashedRam.get(bestHash)){
+		//			if(type == null){
+		//				type = ram.get_type();
+		//			}else if(!type.equals(ram.get_type())){
+		//				ErrorLog.print("Incorrect ram type: \n\tType: " + type + "\n\tRAM: " + ram.get_type());
+		//			}
+		//		}
 				//END CONTROL
-			}
-			Output.println("\tFINAL FPGA SIZE: " + fpga.sizeX() + " x " + fpga.sizeY());
-			Output.println("\t\tLAB | AV: " + Util.fill(fpga.LAB(), 3));
-			Output.println("\t\tDSP | AV: " + Util.fill(fpga.DSP(), 3) + " | REQ: " + reqDSP);
-			Output.println("\t\tM9K | AV: " + Util.fill(fpga.M9K(), 3) + " | REQ: " + reqM9K);
-			Output.println("\t\tM144K | AV: " + Util.fill(fpga.M144K(), 3) + " | REQ: " + reqM144K);
-			Output.newLine();
-		}
-		if(reqM9K > fpga.M9K() || reqM144K > fpga.M144K() || reqDSP > fpga.DSP()){
+		//	}
+		/*
+		 * Output.println("\tFINAL FPGA SIZE: " + fpga.sizeX() + " x " + fpga.sizeY());
+		 * Output.println("\t\tLAB | AV: " + Util.fill(fpga.LAB(), 3));
+		 * Output.println("\t\tDSP | AV: " + Util.fill(fpga.DSP(), 3) + " | REQ: " +
+		 * reqDSP); Output.println("\t\tM9K | AV: " + Util.fill(fpga.M9K(), 3) +
+		 * " | REQ: " + reqM9K); Output.println("\t\tM144K | AV: " +
+		 * Util.fill(fpga.M144K(), 3) + " | REQ: " + reqM144K); Output.newLine();
+		 */
+		//}
+		if(req20K > fpga.M20K() || reqDSP > fpga.DSP()){
 			ErrorLog.print("Larger FPGA size required");
 		}
 		//////////// END M9K AND M144K RAM BLOCKS ////////////
@@ -2104,13 +2321,14 @@ public class Netlist{
 		for(String hash:hashedRam.keySet()){
 			ArrayList<B> slices = hashedRam.get(hash);
 			Model model = this.models.get(slices.get(0).get_type());
-			int M9K = model.get_stratixiv_ram_slices_9();
-			int M144K = model.get_stratixiv_ram_slices_144();
-			if(M9K > 0){
-				if(slices.size() <= M9K){
+			int M20K = model.get_ram_slices();
+			//int M9K = model.get_stratixiv_ram_slices_9();
+			//int M144K = model.get_stratixiv_ram_slices_144();
+			if(M20K > 0){
+				if(slices.size() <= M20K){
 					ramMolecules.add(hashedRam.get(hash));
 					removedHashes.add(hash);
-				}else if(M9K == 1){
+				}else if(M20K == 1){
 					for(B slice:hashedRam.get(hash)){
 						ArrayList<B> temp = new ArrayList<B>();
 						temp.add(slice);
@@ -2118,7 +2336,8 @@ public class Netlist{
 					}
 					removedHashes.add(hash);
 				}
-			}else if(M144K > 0){
+			}
+			/*else if(M144K > 0){
 				if(slices.size() <= M144K){
 					ramMolecules.add(hashedRam.get(hash));
 					removedHashes.add(hash);
@@ -2130,19 +2349,25 @@ public class Netlist{
 					}
 					removedHashes.add(hash);
 				}
-			}else{
+			}*/
+			else{
 				ErrorLog.print(model.get_name());
 			}
 		}
 		for(String hash:removedHashes){
 			hashedRam.remove(hash);
 		}
+		int[] M20K = new int[2];
 		int[] M9K = new int[2];
 		int[] M144K= new int[2];
 		
 		for(ArrayList<B> ramAtoms:ramMolecules){
 			String type = ramAtoms.get(0).get_type();
-			if(type.contains("M9K") && type.contains("M144K")){
+			//Output.println("The type is " + type);
+			if(type.contains("port_ram")) {
+				M20K[0] +=1;
+			}
+			/*if(type.contains("M9K") && type.contains("M144K")){
 				ErrorLog.print("Invalid type: " + type);
 			}else if(type.contains("M9K")){
 				M9K[0] += 1;
@@ -2150,7 +2375,7 @@ public class Netlist{
 				M144K[0] += 1;
 			}else{
 				ErrorLog.print("Unrecognized type: " + type);
-			}
+			}*/
 			this.pack_to_molecule(ramAtoms, "RAM");
 		}
 	
@@ -2165,20 +2390,22 @@ public class Netlist{
 			}
 			
 			String type = hashedRam.get(hash).get(0).get_type();
-			if(type.contains("M9K") && type.contains("M144K")){
+			if(type.contains("port_ram")) {
+				M20K[1] += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_ram_slices());
+			}else if(type.contains("M9K") && type.contains("M144K")){
 				ErrorLog.print("Invalid type: " + type);
 			}else if(type.contains("M9K")){
-				M9K[1] += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_9());
+				//M9K[1] += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_9());
 			}else if(type.contains("M144K")){
-				M144K[1] += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_144());
+				//M144K[1] += Math.ceil((1.0*hashedRam.get(hash).size())/model.get_stratixiv_ram_slices_144());
 			}else{
 				ErrorLog.print("Unrecognized type: " + type);
 			}
 		}
 		Output.println("\tRAM statistics:");
-		Output.println("\t\tPacked to single molecule  | " + "M9K:   " + Util.fill(M9K[0], 4) + " | M144K: " + Util.fill(M144K[0], 4));
-		Output.println("\t\tHierarchical RAM packing   | " + "M9K:   " + Util.fill(M9K[1], 4) + " | M144K: " +Util.fill(M144K[1], 4));
-		Output.println("\t\tTotal amount of RAM blocks | " + "M9K:   " + Util.fill((M9K[0]+M9K[1]), 4) + " | M144K: " + Util.fill((M144K[0]+M144K[1]), 4));
+		Output.println("\t\tPacked to single molecule  | " + "M20K:   " + Util.fill(M20K[0], 4));
+		Output.println("\t\tHierarchical RAM packing   | " + "M20K:   " + Util.fill(M20K[1], 4));
+		Output.println("\t\tTotal amount of RAM blocks | " + "M20K:   " + Util.fill((M20K[0]+M20K[1]), 4));
 		Output.newLine();
 		
 		t.stop();
@@ -2668,7 +2895,9 @@ public class Netlist{
 	}
 	private void getLeafNodes(List<Netlist> result){
 		if(this.has_children()){
+			//Output.println("The netlist has children");
 			for(Netlist child:this.children){
+				//Output.println("The child name " + child.number);
 				child.getLeafNodes(result);
 			}
 		}else{
@@ -2734,9 +2963,11 @@ public class Netlist{
 		}
 	}
 
+	
 	//Hierarchy
 	public void setRecursiveHierarchyIdentifier(String val){
 		//Test functionality
+
 		if(this.children.size() > 2){
 			ErrorLog.print("Each netlist should have a maximum of 2 children");
 		}
@@ -2744,6 +2975,18 @@ public class Netlist{
 			ErrorLog.print("Each netlist should have 0 or 2 children");
 		}
 
+		this.hierarchyIdentifier = val;
+		
+		int index = 0;
+		for(Netlist child:this.children){
+			child.setRecursiveHierarchyIdentifier(this.hierarchyIdentifier + Util.str(index));
+			index++;
+		}
+	}
+	//For die level. Without the child check
+	public void setDieRecursiveHierarchyIdentifier(String val){
+		//Test functionality
+		
 		this.hierarchyIdentifier = val;
 		
 		int index = 0;

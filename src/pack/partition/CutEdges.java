@@ -88,7 +88,7 @@ public class CutEdges {
 		}else{
 			sinkPinAtomId = sinkPin.get_id();
 		}
-		
+	
 		int outputDelay = this.maxArrivalTime - sourcePin.get_required_time();
 		int inputDelay = sinkPin.get_arrival_time();
 	

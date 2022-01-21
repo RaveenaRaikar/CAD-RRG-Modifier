@@ -13,6 +13,7 @@ public class NetGen implements Runnable{
 		this.parent = parent;
 		this.thread = thread;
 	}
+	
 	public Netlist result(){
 		return this.result;
 	}

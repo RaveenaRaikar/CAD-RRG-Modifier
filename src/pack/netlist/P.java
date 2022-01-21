@@ -41,12 +41,14 @@ public class P implements Comparable<P>{
 	private boolean downstream;
 	
 	public P(B b, N n, String port, boolean isSourcePin, boolean isSinkPin, int netWeight, Integer arrivalTime, Integer requiredTime, boolean isStartPin, boolean isEndPin){
+		//Output.println("I am invoked");
 		this.net = n;
 		this.block = b;
 		this.terminal = null;
 		this.port = port;
 		
 		this.id = "b" + b.get_number() + "_" + "n" + n.get_number() + "_" + port;
+		//Output.println("The id is " + this.id + " the block is " + b.get_name() + " the net is " + n.get_name());
 		
 		if(isSourcePin && isSinkPin){
 			ErrorLog.print("This pin is source and sink");
@@ -106,6 +108,7 @@ public class P implements Comparable<P>{
 		this.downstream = false;
 	}
 	public P(T t, N n, String port, boolean isSourcePin, boolean isSinkPin, int netWeight, Integer arrivalTime, Integer requiredTime, boolean isStartPin, boolean isEndPin){
+		//Output.println("Or I am invoked");
 		this.net = n;
 		this.block = null;
 		this.terminal = t;
@@ -247,6 +250,7 @@ public class P implements Comparable<P>{
 			this.arrivalTime = val;
 		}
 	}
+	
 	public int get_arrival_time(){
 		if(this.has_arrival_time()){
 			return this.arrivalTime;
@@ -262,30 +266,59 @@ public class P implements Comparable<P>{
 	public boolean has_arrival_time(){
 		return this.hasArrivalTime;
 	}
+
 	public int recursive_arrival_time(Architecture arch, DelayMap connectionDelay){
+		
 		if(this.has_arrival_time()){
 			return this.get_arrival_time();
 		}
 		if(this.get_net().has_source()){
+			//Output.println("the net is " + this.get_net().get_name() + " the source and sink is " + this.get_net().get_source_block().get_name());
 			P sourcePin = this.get_net().get_source_pin();
 			if(sourcePin.is_start_pin()){
+				//How many times is this executed??
+				
+				//Source to a net is output pin, Q/out/etc and the sink to the net is the input pin
+				//The connection delay is calculated for each net based on the initially set value.
+				//The source pins are the starting pins in the blif file.
+				
+				//The other pins in the blif file need to calculate it based on the arrival time at that
+				//input.
 				sourcePin.set_arrival_time(0);
+				//Output.println("The connection delay is " + connectionDelay.getDelay(sourcePin, this));
 				this.set_arrival_time(sourcePin.get_arrival_time() + connectionDelay.getDelay(sourcePin, this));
+				//Output.println("The source pin for start pin is " + sourcePin.get_detailed_architecture_name() + " the delay is " + sourcePin.get_arrival_time());
+				
 				return this.get_arrival_time();
 			}else{
 				B sourceBlock = sourcePin.get_block();
+				//Output.println("The source block is " + sourceBlock.get_name());
 				if(sourceBlock.has_inputs()){
 					int maxArrivalTime = 0;
 					for(String inputPort:sourceBlock.get_input_ports()){
+						//Output.print("The input ports are " + inputPort);
 						for(P inputPin:sourceBlock.get_input_pins(inputPort)){
+							//Output.println("\nI am executed");
+							//Output.print("The input pins are " + inputPin.get_detailed_architecture_name());
 							if(arch.valid_connection(sourceBlock.get_type(), inputPin.get_port_name(),sourcePin.get_port_name())){
+								
 								int localArrivalTime = inputPin.recursive_arrival_time(arch, connectionDelay) + arch.get_block_delay(sourceBlock.get_type(),inputPin.get_port_name(), sourcePin.get_port_name());
+
+								//Output.println("The local arrival time is " + localArrivalTime + " the connection delay is " + arch.get_block_delay(sourceBlock.get_type(),inputPin.get_port_name(), sourcePin.get_port_name()));
+								//Output.println("The source and sink are " + inputPin.get_id() + " " + sourcePin.get_id());
+								//
+								
 								if(localArrivalTime > maxArrivalTime) maxArrivalTime = localArrivalTime;
 							}
 						}
 					}
 					sourcePin.set_arrival_time(maxArrivalTime);
+					
 					this.set_arrival_time(sourcePin.get_arrival_time() + connectionDelay.getDelay(sourcePin, this));
+
+					//Output.println("The arrival time of source pin is " + sourcePin.get_arrival_time());
+					//Output.println("I am true and the source pin is " + sourcePin.get_id() + " the delay is " + this.get_arrival_time() + " The connection delay is " + connectionDelay.getDelay(sourcePin, this));
+					//Output.println("The source pin is " + sourcePin.get_detailed_architecture_name() + " the delay is " + sourcePin.get_arrival_time());
 					return this.get_arrival_time();
 				}else{
 					//Constant generator
@@ -355,9 +388,11 @@ public class P implements Comparable<P>{
 		}
 		if(this.is_source_pin()){
 			int minRequiredTime = Integer.MAX_VALUE;
+			//Output.println("The min required time is " + minRequiredTime);
 			for(P sinkPin:this.get_net().get_sink_pins()){
+				//Output.println("The net is " + this.get_net().get_name() + " the source is " + this.get_net().get_source_block().get_name());
 				int localRequiredTime = sinkPin.recursive_required_time(arch, connectionDelay) - connectionDelay.getDelay(this, sinkPin);
-
+				//Output.println("The local required time is " + localRequiredTime + " The connection delay is " + connectionDelay.getDelay(this, sinkPin));
 				if(localRequiredTime < minRequiredTime){
 					minRequiredTime = localRequiredTime;
 				}
@@ -372,14 +407,21 @@ public class P implements Comparable<P>{
 				}
 			}
 			this.set_required_time(minRequiredTime);
+			
 			return this.get_required_time();
 		}else if(this.is_sink_pin()){
 			B sinkBlock = this.get_block();
 			int minRequiredTime = Integer.MAX_VALUE;
 			for(String outputPort:sinkBlock.get_output_ports()){
 				for(P outputPin:sinkBlock.get_output_pins(outputPort)){
+					//Output.println("\nI am executed");
 					if(arch.valid_connection(sinkBlock.get_type(), this.get_port_name(), outputPin.get_port_name())){
 						int localRequiredTime = outputPin.recursive_required_time(arch, connectionDelay) - arch.get_block_delay(sinkBlock.get_type(), this.get_port_name(), outputPin.get_port_name());
+						//Output.println("The local required time is " + localRequiredTime + " the connection delay is " + arch.get_block_delay(sinkBlock.get_type(), this.get_port_name(), outputPin.get_port_name()));
+						//Output.println("The source and sink are " + outputPin.get_id());
+						//
+
+						
 						if(localRequiredTime < minRequiredTime){
 							minRequiredTime = localRequiredTime;
 						}
@@ -387,6 +429,10 @@ public class P implements Comparable<P>{
 				}
 			}
 			this.set_required_time(minRequiredTime);
+			//Output.println("The required time of source pin is " + sourcePin.get_arrival_time());
+			//Output.println("I am true and the source pin is " + this.get_id() + " the delay is " + this.get_required_time());
+			//Output.println("The source pin is " + sourcePin.get_detailed_architecture_name() + " the delay is " + sourcePin.get_arrival_time());
+			
 			return this.get_required_time();
 		}else{
 			ErrorLog.print("Unexpected situation, a pin should be a start pin or an end pin");
@@ -522,6 +568,7 @@ public class P implements Comparable<P>{
 		
 		if(this.has_block()){
 			if(this.get_block().has_atoms()){
+				Output.println("The block has atoms " );
 				if(Util.isMoleculeType(this.get_block().get_type())){
 					if(pinPortName.indexOf(".") < 0){
 						System.out.println(this.block.get_type());
@@ -553,6 +600,8 @@ public class P implements Comparable<P>{
 				}
 				return null;
 			}else{
+				//Output.println("The block does not have atoms " );
+			//	Output.println("The return value is  " +this.get_block().get_type() + "." + pinPortName );
 				return this.get_block().get_type() + "." + pinPortName;
 			}
 		}else{

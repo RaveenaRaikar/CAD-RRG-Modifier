@@ -28,7 +28,7 @@ public class SwapRAM {
 		for(int i=0;i<2;i++){
 			HashMap<HardBlockGroup,ArrayList<B>> tempHashedRam = new HashMap<HardBlockGroup,ArrayList<B>>();
 			for(B ram:this.result[i].getBlocks()){
-				if(ram.get_type().contains("stratixiv_ram_block")){
+				if(ram.get_type().contains("port_ram")){
 					HardBlockGroup hbg = ram.getHardBlockGroup();
 					this.hardBlockGroups.add(hbg);
 					if(!tempHashedRam.containsKey(hbg)){

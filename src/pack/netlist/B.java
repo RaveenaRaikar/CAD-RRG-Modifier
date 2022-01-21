@@ -70,8 +70,8 @@ public class B {
 		return this.number;
 	}
 	public void set_type(String type){
-		if(!type.contains("stratixiv_ram_block")){
-			ErrorLog.print("This function should only be used for stratixiv_ram_block, not for " + this.type);
+		if(!type.contains("port_ram")){
+			ErrorLog.print("This function should only be used for memory, not for " + this.type);
 		}else{
 			this.type = type;
 		}
@@ -385,9 +385,19 @@ public class B {
 	//HASH
 	public String get_hash(){
 		//Required to determine if memory slices have the same control signals
+		//Add pins for the Koios architecture.
 		StringBuffer hash = new StringBuffer();
-		if(this.get_type().contains("stratixiv_ram_block")){
+		if(this.get_type().contains("port_ram")){
 			ArrayList<String> hashedInputs = new ArrayList<String>();
+			hashedInputs.add("we1");
+			hashedInputs.add("we2");
+			hashedInputs.add("addr1");
+			hashedInputs.add("addr2");
+			hashedInputs.add("we");
+			hashedInputs.add("addr");
+			
+			hashedInputs.add("clk");
+			/*
 			hashedInputs.add("portaaddr");
 			hashedInputs.add("portbaddr");
 			hashedInputs.add("ena0");
@@ -406,7 +416,7 @@ public class B {
 			hashedInputs.add("portbbyteenamasks");
 			
 			hashedInputs.add("clk0");
-			
+			*/
 			hash.append(this.get_type());
 			for(String inputPort:hashedInputs){
 				if(this.has_input_port(inputPort)){
@@ -417,7 +427,8 @@ public class B {
 				}
 			}
 		}else{
-			Output.println("BlockType is " + this.get_type() + ", should be stratixiv_ram_block");
+			//Output.println("BlockType is " + this.get_type() + ", should be stratixiv_ram_block");
+			Output.println("BlockType is " + this.get_type() + ", should be Ram block");
 		}
 		return hash.toString();
 	}
@@ -445,12 +456,13 @@ public class B {
 		if(this.get_type().equals(".latch")){
 			parts.addAll(this.net_string("D"));
 			parts.addAll(this.net_string("Q"));
+		//	Output.println("The Q is " + toString(this.net_string("Q")));
 			parts.add("re");
 			parts.addAll(this.net_string("clk"));
 			parts.add("0");
 			blif.add_latch(".latch" + toString(parts));
-		}
-		else if(this.get_type().equals(".names")){
+		//	Output.println("the latch added is " + toString(parts));
+		}else if(this.get_type().equals(".names")){
 			parts.addAll(this.net_string("in"));
 			parts.addAll(this.net_string("out"));
 			blif.add_gate(".names" + toString(parts) + "\n" + this.get_truth_table());
@@ -460,6 +472,11 @@ public class B {
 			}
 			Boolean firstOutputPort = true;
 			for(String outputPort:model.get_output_ports()){
+				if(this.get_type().contains("multiply"))
+				{
+				firstOutputPort = false;
+			//	Output.println("The Output ports are " + outputPort);
+				}
 				parts.addAll(output_port_to_blif(outputPort, model, blif, firstOutputPort, printUnconnectedPins));
 				firstOutputPort = false;
 			}
@@ -531,6 +548,7 @@ public class B {
 			}
 		}else{
 			for(int i=0; i<model.pins_on_port(port); i++){
+				//Output.println("The value is " + model.pins_on_port(port));
 				if(nets.size() <= i){
 					if(firstOutputPort){
 						result.add(port + "[" + i + "]" + "=" + this.get_name());
@@ -540,6 +558,7 @@ public class B {
 					}
 				}else{
 					if(firstOutputPort){
+						Output.println("the nets are " + nets.get(i));
 						if(nets.get(i).get_name().equals(this.get_name())){
 							result.add(port + "[" + i + "]" + "=" + this.get_name());
 						}else{
@@ -634,19 +653,26 @@ public class B {
 	
 	//RAM BLOCKS
 	public HashSet<P> get_data_inputs(){
-		if(this.get_type().contains("stratixiv_ram_block")){
+		if(this.get_type().contains("port_ram")){
 			HashSet<P> dataInputPins = new HashSet<P>();
-			if(this.has_input_port("portadatain")){
-				ArrayList<P> pins = this.get_input_pins("portadatain");
+			if(this.has_input_port("data")){
+				ArrayList<P> pins = this.get_input_pins("data");
 				if(pins.size() != 1){
-					ErrorLog.print("Error in ram block " + this.toString() + " on input pin " + "portadatain" + " => " + pins.size() + " pins");
+					ErrorLog.print("Error in ram block " + this.toString() + " on input pin " + "data" + " => " + pins.size() + " pins");
 				}
 				dataInputPins.add(pins.get(0));
 			}
-			if(this.has_input_port("portbdatain")){
-				ArrayList<P> pins = this.get_input_pins("portbdatain");
+			if(this.has_input_port("data1")){
+				ArrayList<P> pins = this.get_input_pins("data1");
 				if(pins.size() != 1){
-					ErrorLog.print("Error in ram block " + this.toString() + " on input pin " + "portbdatain" + " => " + pins.size() + " pins");
+					ErrorLog.print("Error in ram block " + this.toString() + " on input pin " + "data1" + " => " + pins.size() + " pins");
+				}
+				dataInputPins.add(pins.get(0));
+			}
+			if(this.has_input_port("data2")){
+				ArrayList<P> pins = this.get_input_pins("data2");
+				if(pins.size() != 1){
+					ErrorLog.print("Error in ram block " + this.toString() + " on input pin " + "data2" + " => " + pins.size() + " pins");
 				}
 				dataInputPins.add(pins.get(0));
 			}

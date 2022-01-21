@@ -45,6 +45,7 @@ public class NetFileWriter {
 		this.tabs = 0;
 		this.names = new ArrayList<>();
 	}
+	
 	public void netlistInputs(){
 		this.netlistInputs = new ArrayList<>();
 		for(B b:this.root.get_blocks()){
@@ -81,8 +82,8 @@ public class NetFileWriter {
 			}
 		}
 	}
-	public void makeNetFile(String resultFolder){
-		makeNetFile(this.root, resultFolder);
+	public void makeNetFile(String resultFolder, int partnum){
+		makeNetFile(this.root, resultFolder, partnum);
 	}
 	public void printHeaderToNetFile(String result_folder){
 		this.writeBlockToNetFile(result_folder + this.root.get_blif() + ".net", "FPGA_packed_netlist[0]", null);
@@ -100,9 +101,7 @@ public class NetFileWriter {
 		writeClocksToNetFile();
 	}
 	public void printLogicBlocksToNetFile(){
-		//Output.println("The file is " + this.root);
 		for(LogicBlock lb:this.logicBlocks){
-			//Output.println("The block is " + lb.getName());
 			lb.setInstanceNumber(this.blockC++);
 			this.writeToNetFile(lb.toNetString(1));
 		}
@@ -188,9 +187,10 @@ public class NetFileWriter {
 	}
 	
 	//// WRITER ////
-	private void makeNetFile(Netlist root, String resultFolder){
+	private void makeNetFile(Netlist root, String resultFolder, int partnum){
 		try {
-			FileWriter w = new FileWriter(resultFolder + root.get_blif() + ".net");
+			Output.println("The partnum is " + partnum);
+			FileWriter w = new FileWriter(resultFolder + root.get_blif() + "_"+ partnum + ".net");
 			this.writer = new BufferedWriter(w);
 		} catch (IOException e) {
 			e.printStackTrace();

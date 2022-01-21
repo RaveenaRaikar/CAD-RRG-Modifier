@@ -262,6 +262,9 @@ public class LogicBlock {
 		}
 
 		if(this.isEmpty()){
+			/* VTR8 is accepting open blocks with input and output connections hence remove 
+			 * the empty checks
+			 */
 			//if(!this.inputs.isEmpty()) {ErrorLog.print("Open block should not have inputs");}
 			//if(!this.outputs.isEmpty())ErrorLog.print("Open block should not have outputs");
 			//if(!this.clocks.isEmpty())ErrorLog.print("Open block should not have clocks");

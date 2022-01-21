@@ -1,5 +1,6 @@
 package pack.cluster;
 
+import java.nio.file.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -178,37 +179,42 @@ public class TPack {
 	}
 
 	private void startTPack(Set<B> floatingBlocks){
+		boolean dielevel = false;
 		int thread = this.threadPool.getThread();
-		Netlist.write_blif(this.vpr_folder + "vpr/files/", thread, floatingBlocks, this.root.get_blif(), this.root.get_models(), this.simulation.getSimulationID());
+		Netlist.write_blif(this.vpr_folder + "vpr/files/", thread, floatingBlocks, this.root.get_blif(), this.root.get_models(), this.simulation.getSimulationID(), dielevel);
 		VPRThread vpr = new VPRThread(thread, this.simulation, null);
 		vpr.run(floatingBlocks.size());
 		this.packPool.add(vpr);
 	}
 	public void startTPack(){
+		boolean dielevel =false;
 		while(!this.subcircuits.isEmpty() && !this.threadPool.isEmpty()){
 			Netlist leafNode = this.subcircuits.remove(0);
 			int thread = this.threadPool.getThread();
+			//Output.println("the thread is " + thread);
 			leafNode.writeSDC(this.vpr_folder + "vpr/files/", thread, this.partition, this.simulation.getSimulationID());
-			leafNode.writeBlif(this.vpr_folder + "vpr/files/", thread, this.partition, this.simulation.getSimulationID());
+			//Output.println("The thread is " + thread + " and the partition number is " + this.partition.);
+			leafNode.writeBlif(this.vpr_folder + "vpr/files/", thread, this.partition, this.simulation.getSimulationID(),dielevel);
 			VPRThread vpr = new VPRThread(thread, this.simulation, leafNode);
 			
 			vpr.run(leafNode.atom_count());
 			this.packPool.add(vpr);
 		}
 	}
+	
 	public void finishTPack(){
 		for(int i=0; i<this.packPool.size(); i++){
-			if(!this.packPool.get(i).isRunning()){
+			//if(!this.packPool.get(i).isRunning()){
+			if(!this.packPool.get(i).isRunning(i)){
 				VPRThread vpr = this.packPool.remove(i);
 				int thread = vpr.getThread();
 				this.threadPool.addThread(thread);
+				/* files generated in Eclipse source directory, move the process files to VPR/files folder
+				 * using files.move. --> This leads to additional runtime hence skipped.
+				 */
+				String CurrentDirectory = System.getProperty("user.dir");
+				String file = CurrentDirectory +"/" + this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
 
-				//String file = this.vpr_folder + "vpr/files" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
-		 		/*Output.println(file);*/
-				String currentWorkingDir = System.getProperty("user.dir");
-				String file = currentWorkingDir + this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
-				//String file = "/home/raveena/Documents/Code/FPGA-CAD-Framework" +  this.root.get_blif() + "_" + this.simulation.getSimulationID() + "_" + thread;
-				//Output.println(file);
 				if(!Util.fileExists(file + ".net")){
 		 			Output.println("Netfile " + file + ".net" + " " + "not available");
 		 			Output.println("**** VPR Line ****");

@@ -46,7 +46,9 @@ public class Part {
 	public void add(B b){
 		b.set_part(this.part);
 		this.blocks.add(b);
-		if(b.get_type().equals("HALF_DSP")){
+		
+		//if(b.get_type().equals("HALF_DSP")){
+		if(b.get_type().equals("dsp")){
 			this.numDSPPrimitives += 1;
 			this.primitivesDSP.add(b);
 		}else if(b.hasHardBlockGroup()){
@@ -63,10 +65,11 @@ public class Part {
 		if(this.blocks.remove(b) == false){
 			ErrorLog.print("Block " + b.toString() + " not removed correctly");
 		}
-		if(b.get_type().equals("HALF_DSP")){
+		if(b.get_type().equals("dsp")){
+	//	if(b.get_type().equals("HALF_DSP")){
 			this.numDSPPrimitives -= 1;
 			this.primitivesDSP.remove(b);
-		}else if(b.get_type().contains("stratixiv_ram_block")){
+		}else if(b.get_type().contains("port_ram")){
 			HardBlockGroup hbg = b.getHardBlockGroup();
 			this.primitivesRAM.get(hbg).remove(b);
 			if(this.primitivesRAM.get(hbg).isEmpty()){

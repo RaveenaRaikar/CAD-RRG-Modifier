@@ -37,16 +37,26 @@ public class VPRThread {
 		this.run = new String();
 		this.run += vpr_folder + "vpr/vpr" + " ";
     	//this.run += result_folder + "arch.pack.xml" + " ";
-		this.run += result_folder + "Huawei_arch_multi.timing.xml" + " ";
+		this.run += result_folder + "Huawei_arch_multi_die_V2.xml" + " ";
 		//this.run += result_folder + "stratixiv_arch.timing.xml" + " ";
+		//this.run += result_folder + "k6FracN10LB_mem20K_complexDSP_customSB_22nm.xml" + " ";
 		
-    	this.run += vpr_folder + "vpr/files" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + ".blif" + " ";
+    	this.run += vpr_folder + "vpr/files/" + circuit + "_" + this.simulation.getSimulationID() + "_" + this.thread + ".blif" + " ";
     	this.run += "--pack" + " ";
-    	//Output.println("VPR line is " + this.run);
-
+   
     	ProcessBuilder pb = new ProcessBuilder(this.run.split(" "));
     	try {
-			this.proc = pb.start();
+    		/* VTR8 is failing if the process is started from the vpr/files folder. This error is invalid and is not 
+    		 * observed when the process starts from root directory. 
+    		 * TODO : Delete the .net files from subsequent thread files from the CAD_framework.
+    		 */
+    		this.proc = pb.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(this.proc.getInputStream()));
+                 String line;
+                 while ((line = reader.readLine()) != null) {
+                  //  System.out.println(line);
+           }
+	
         }catch (IOException e) {
 			Output.println("Problems with vpr process");
 			e.printStackTrace();
@@ -57,7 +67,8 @@ public class VPRThread {
 		this.size = size;
 	}
 	
-	public boolean isRunning() {
+	//public boolean isRunning() {
+	public boolean isRunning(int i) {
 		try {
 			this.proc.exitValue();
 

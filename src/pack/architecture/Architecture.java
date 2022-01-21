@@ -36,10 +36,22 @@ public class Architecture {
 	private HashMap<Integer, HashMap<Integer, Conn>> connections;
 	private HashMap<String, HashMap<String, Boolean>> globalConnections;
 	private HashMap<String, HashMap<String,Integer>> delayMap;
-	
+	private Map<String, Integer> alldimensions;
 	private int sizeX;
 	private int sizeY;
-
+	//DSP, RAM block size
+	private int DSPht;
+	private int RAMht;
+	private int DSPwt;
+	private int RAMwt;
+	//DSP, RAM start and repeat locations
+	private int DSPx;
+	private int RAMx;
+	private int DSPstartx;
+	private int RAMstartx;
+	private int RAMpriority;
+	private int DSPpriority;
+	
 	public Architecture(Simulation simulation){
 		this.name = simulation.getStringValue("architecture");
 		this.simulation = simulation;
@@ -52,6 +64,7 @@ public class Architecture {
 		this.numConn = 0;
 		this.connections = new HashMap<Integer,HashMap<Integer,Conn>>();
 		this.globalConnections = new HashMap<String,HashMap<String, Boolean>>();
+		this.alldimensions = new HashMap<>();
 		
 		this.delayMap = new HashMap<String, HashMap<String,Integer>>();
 	}
@@ -114,11 +127,14 @@ public class Architecture {
 	public void initialize(){
 		Output.println("Initialize architecture:");
 	//	this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "arch.light.xml");
-		this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "Huawei_arch_multi.timing.xml");
+		this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "Huawei_arch_multi_die_V2.xml");
+	//	this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "k6FracN10LB_mem20K_complexDSP_customSB_22nm.xml");
 	//	this.lines = this.read_file(this.simulation.getStringValue("result_folder") + "stratixiv_arch.timing.xml");
+		
 		this.get_models();
 		this.get_complex_blocks(true);
 		this.initializeDimensions();
+		this.HardBlock_dimensions();
 		Output.newLine();
 	}
 	private void get_models(){
@@ -142,6 +158,7 @@ public class Architecture {
 		boolean complete = false;
 		boolean mux = false;
 		boolean direct = false;
+	//	int pbchecker = 0;
 		
 		
 		for(int i=0;i<this.lines.size();i++){
@@ -153,13 +170,17 @@ public class Architecture {
 			}else if(complexBlockLines){
 				//Blocks and modes
 				if(line.contains("<pb_type")){
+					//pbchecker ++;
+					//Output.println("pbchecker in pbytype is " + pbchecker);
 					Element parent = current;
 					current = new Block(new Line(line));
+					
+					//System.out.println(current.has_blif_model() +" " );
 					if(current.has_blif_model()){
 						String blifModel = current.get_blif_model();
-						//System.out.println(current.has_blif_model() + current.get_blif_model() + " ");
+					//	System.out.println(current.has_blif_model() +" " +  current.get_blif_model() + " " + current.get_name());
 					//	System.out.println(this.blifBlocks.containsKey(blifModel) + " " );
-					//	System.out.println(parent.get_name() + " ");
+					//	System.out.println("the parent is " + parent.get_name() + " " + "And the child is " + current.get_name());
 						if(!this.blifBlocks.containsKey(blifModel)){
 							this.blifBlocks.put(blifModel, new ArrayList<Block>());
 						}
@@ -167,13 +188,18 @@ public class Architecture {
 					}
 					if(parent != null){
 						//Output.println("parent is not null");
+						//Output.println("The parent in pbtype is " + parent.get_name());
+						//Output.println("The child in pbtype is " + current.get_name());
 						current.set_parent(parent);
 						parent.add_child(current);
 					}
 				}else if(line.contains("<mode")){
+					//pbchecker=0;
+					//Output.println("pbchecker in mode is " + pbchecker);
 					Element parent = current;
 					current = new Mode(new Line(line));
 					if(parent != null){
+						//System.out.println("the parent in mode  is " + parent.get_name() + " " + "And the child in mode is " + current.get_name());
 						current.set_parent(parent);
 						parent.add_child(current);
 						//Output.println("current.set_parent(parent) " + line);
@@ -182,12 +208,17 @@ public class Architecture {
 					
 				}else if(line.contains("</pb_type>")){
 					if(current.has_parent()){
+						//Output.println("The parent is " + parent.get_name());
+						//Output.println("The child before is " + current.get_name());
 						current = current.get_parent();
+						//Output.println("The child after is " + current.get_name());
 					}else{
 						this.complexBlocks.add((Block)current);
 						current = null;
 					}
 				}else if(line.contains("</mode>")){
+					//pbchecker=0;
+					//Output.println("pbchecker at the end of mode is " + pbchecker);
 					if(current.has_parent()){
 						current = current.get_parent();
 					}else{
@@ -261,7 +292,7 @@ public class Architecture {
 					if(l.get_type().equals("T_clock_to_Q")){
 						String clock = l.get_value("clock");
 						if(clock.contains("[") || clock.contains("]")) ErrorLog.print("Wrong clock format " + clock);
-						//Add input 
+						//Add inputget_complex_blocks 
 						String[] inputs = l.get_value("port").split(" ");
 						String[] outputs = l.get_value("port").split(" ");
 						double secondDelay = Double.parseDouble(l.get_value("max"));
@@ -357,12 +388,76 @@ public class Architecture {
 								current.add_delay(input, output, picoSecondDelay);
 							}
 						}
+						//To add the shorted LUT interconnect
+						if(current.get_blif_model().equals(".names"))
+						{
+							//Output.println("I am printed for this condition");
+							current.add_interconnect_line(line);
+							//Line l = new Line(line);
+							boolean valid = true;
+							if(l.get_value("in_port").length() == 0) valid = false; //No input found
+							if(l.get_value("out_port").length() == 0) valid = false; //No output found
+							if(valid){
+								HashMap<String, Element> interconnectedBlocks = this.get_interconnected_blocks((Element)current);
+								
+						//		String name = l.get_value("name");
+								String[] inputPorts = l.get_value("in_port").split(" ");
+								String[] outputPorts = l.get_value("out_port").split(" ");
+									
+								for(String inputPort:inputPorts){
+									for(String outputPort:outputPorts){
+										Element sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+										Element sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+										
+										ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
+										ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
+									
+										for(Pin inputPin:inputPins){
+											//Output.println("The input pin for the delay matrix is " + inputPin.get_name());
+											for(Pin outputPin:outputPins){
+											//	Output.println("The Output pin for the delay matrix is " + outputPin.get_name());
+												boolean add = true;
+												//Output.println("The input pin is " + inputPin.get_name() + " The output pin is " + outputPin.get_name()  );
+												if(this.connections.containsKey(inputPin.get_number())){
+													//Output.println("The second time it is added");
+													if(this.connections.get(inputPin.get_number()).containsKey(outputPin.get_number())){
+														add = false;
+													}
+												}
+												if(add){
+													Conn conn = new Conn(name, inputPin, outputPin, false);
+													inputPin.add_output_connection(conn);
+													outputPin.add_input_connection(conn);
+													//Output.println("The first time it is added");
+													if(!this.connections.containsKey(inputPin.get_number())){
+														this.connections.put(inputPin.get_number(), new HashMap<Integer,Conn>());
+													}
+													this.connections.get(inputPin.get_number()).put(outputPin.get_number(), conn);
+													this.numConn += 1;
+													conn.set_delay(picoSecondDelay);
+													//Output.println("The connection and the delays are " + conn.get_source().get_name() + " " + conn.get_sink().get_name() + " " + conn.get_delay());
+												}
+											}
+										}							
+									}
+								}
+							}else{
+								//Output.println("Non valid complete interconnect line: " + line);
+							}
+							complete = false;
+							mux = false;
+							direct = true;
+						}
 					}else{
 						ErrorLog.print("This line should have type delay_matrix instead of " + l.get_type() + " | " + line);
 					}
+					
+					///Check if it is a blif model of the type .names and add it as an interconnect line.
+					
 				//INTERCONNECT LINES
 				}else if(line.contains("<interconnect>")){
 					interconnectLines = true;
+				//	Output.println("The current interconnect line is " + current.get_name());
 					current.add_interconnect_line(line);
 				}else if(line.contains("</interconnect>")){
 					interconnectLines = false;
@@ -375,16 +470,20 @@ public class Architecture {
 					if(l.get_value("input").length() == 0) valid = false; //No input found
 					if(l.get_value("output").length() == 0) valid = false; //No output found
 					if(valid){
-						HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
-
+					//	HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+						//CHANGE
+						HashMap<String, Element> interconnectedBlocks = this.get_interconnected_blocks((Element)current);
 						String name = l.get_value("name");
 						String[] inputPorts = l.get_value("input").split(" ");
 						String[] outputPorts = l.get_value("output").split(" ");
 							
 						for(String inputPort:inputPorts){
 							for(String outputPort:outputPorts){
-								Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
-								Block sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+								Element sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+								Element sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+								
+							//	Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+							//	Block sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
 								
 								ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
 								ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
@@ -425,23 +524,41 @@ public class Architecture {
 					if(l.get_value("input").length() == 0) valid = false; //No input found
 					if(l.get_value("output").length() == 0) valid = false; //No output found
 					if(valid){
-						HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+					//	Output.println("The current type is "+ current.get_type());
+					//	HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+					//	HashMap<String, Block> interconnectedB = new HashMap<String, Block>();
+					//	HashMap<String, Block> interconnectedM = new HashMap<String, Block>();
+						//CHANGE THIS
+						HashMap<String, Element> interconnectedBlocks = this.get_interconnected_blocks((Element)current);
+					//	if(current.get_type().equals("pb_type"))
+					//	{
+					//		interconnectedB = this.get_interconnected_blocks((Block)current);
+					//	}else
+					//	{
+					//		interconnectedM = this.get_interconnected_blocks((Mode)current);
+					//	}
 						
+					//	HashMap<String, Block> interconnectedBlocks = new HashMap<String,Block>();
+					//	interconnectedBlocks.putAll(interconnectedB);
+					//	interconnectedBlocks.putAll(interconnectedM);
+					//	Output.println("The value for one_mult is " + interconnectedBlocks.get("one_mult_27x27"));
 						String name = l.get_value("name");
 						String[] inputPorts = l.get_value("input").split(" ");
 						String[] outputPorts = l.get_value("output").split(" ");
-							
+						
+						String Outputpin = l.get_value("output");
+					//	Output.println("The value is " + Outputpin);
 						for(String inputPort:inputPorts){
+						//	Output.println("The input ports are " + inputPort);
 							for(String outputPort:outputPorts){
-								Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
-								Block sinkBlock =interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
-								
+
+								Element sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+								Element sinkBlock =interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+
 								ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
 								ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
 								
-							//	if(inputPins.size() != outputPins.size()){
-							//		ErrorLog.print("The number of input pins is not equal to the number of output pins in direct connection | input pins: " + inputPins.size() + " | output pins: " + outputPins.size());
-							//	}
+
 								for(int p=0;p<inputPins.size();p++){
 									Pin inputPin = inputPins.get(p);
 									Pin outputPin = outputPins.get(p);
@@ -478,7 +595,9 @@ public class Architecture {
 					if(l.get_value("input").length() == 0) valid = false; //No input found
 					if(l.get_value("output").length() == 0) valid = false; //No output found
 					if(valid){
-						HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+						//HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+						//CHANGE
+						HashMap<String, Element> interconnectedBlocks = this.get_interconnected_blocks((Element)current);
 						
 						String name = l.get_value("name");
 						String[] inputPorts = l.get_value("input").split(" ");
@@ -486,8 +605,11 @@ public class Architecture {
 							
 						for(String inputPort:inputPorts){
 							for(String outputPort:outputPorts){
-								Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
-								Block sinkBlock =interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+								Element sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+								Element sinkBlock =interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+								
+								//Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+								//Block sinkBlock =interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
 								
 								ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
 								ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
@@ -528,8 +650,9 @@ public class Architecture {
 					if(l.get_value("in_port").length() == 0) valid = false; //No input found
 					if(l.get_value("out_port").length() == 0) valid = false; //No output found
 					if(valid){
-						HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
-
+						
+						//HashMap<String, Block> interconnectedBlocks = this.get_interconnected_blocks((Mode)current);
+						HashMap<String, Element> interconnectedBlocks = this.get_interconnected_blocks((Element)current);
 						double connectionSecondDelay = Double.parseDouble(l.get_value("max"));
 						int connectionPicoSecondDelay = (int)Math.round(connectionSecondDelay*Math.pow(10, 12));
 						
@@ -538,19 +661,25 @@ public class Architecture {
 							
 						for(String inputPort:inputPorts){
 							for(String outputPort:outputPorts){
-								Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
-								Block sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
-								
+								Element sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+								Element sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+							//	Block sourceBlock = interconnectedBlocks.get(process_block_name(inputPort.split("\\.")[0], interconnectedBlocks));
+							//	Block sinkBlock = interconnectedBlocks.get(process_block_name(outputPort.split("\\.")[0], interconnectedBlocks));
+								//Raav : Done these changes to support nested pb_type structures in VTR arch file
 								ArrayList<Pin> inputPins = this.get_pins(inputPort.split("\\.")[1], sourceBlock);
 								ArrayList<Pin> outputPins = this.get_pins(outputPort.split("\\.")[1], sinkBlock);
 								
 								if(complete){
 									for(Pin inputPin:inputPins){
+										//Output.println("The input pins are " + inputPin.get_name());
 										for(Pin outputPin:outputPins){
+											//Output.println("The output pins are " + outputPin.get_name());
 											Conn conn = this.connections.get(inputPin.get_number()).get(outputPin.get_number());
 											int localDelay = conn.get_delay();
+											//Output.println("The local delay is " + localDelay);
 											if(localDelay < 0){
 												conn.set_delay(connectionPicoSecondDelay);
+											//	Output.println("The connection delay is " + conn.get_delay());
 											}else if(localDelay != connectionPicoSecondDelay){
 												Output.println(localDelay + "!=" + connectionPicoSecondDelay);
 											}
@@ -600,7 +729,8 @@ public class Architecture {
 			//Delay of short connection in global routing architecture 
 			//      => this value is architecture specific! 
 			//TODO Determine this value based on architecture file
-			int interconnectDelay = 132;
+			//Change this to average of L1+L2+L6 delays
+			int interconnectDelay = 42;
 
 			for(Block sourceBlock:this.complexBlocks){
 				for(Port sourcePort:sourceBlock.get_output_ports()){
@@ -610,6 +740,7 @@ public class Architecture {
 								for(Pin sinkPin:sinkPort.get_pins()){
 									Conn conn = new Conn("global_interconnect", sourcePin, sinkPin, true);
 									conn.set_delay(interconnectDelay);
+									//Output.println("The connections between source" + sourcePin.get_name() + " and sink pink " + sinkPin.get_name() + " is a " + conn.get_name() + " and its delay is " + conn.get_delay());
 									sourcePin.add_output_connection(conn);
 									sinkPin.add_input_connection(conn);
 									if(!this.connections.containsKey(sourcePin.get_number())){
@@ -629,6 +760,7 @@ public class Architecture {
 			}
 			//Set delay of all connection without a delay to O
 			for(int source:this.connections.keySet()){
+				//Output.println("The source is " + source);
 				for(int sink:this.connections.get(source).keySet()){
 					Conn conn = this.connections.get(source).get(sink);
 					if(conn.get_delay()<0){
@@ -638,15 +770,11 @@ public class Architecture {
 			}
 			//Assign blif pins
 			for(String blifName:this.blifBlocks.keySet()){
-				//Output.println("Blif name is " + blifName);
 				for(Block blifBlock:this.blifBlocks.get(blifName)){
 					for(Port inputPort:blifBlock.get_input_and_clock_ports()){
-						///Output.println("Port name is " + inputPort.get_name());
 						for(Pin inputPin:inputPort.get_pins()){
-							//Output.println("Pin name is " + inputPin.get_name());
 							if(!this.blifPins.containsKey(inputPin.get_name())){
 								this.blifPins.put(inputPin.get_name(), new ArrayList<Pin>());
-								//Output.println("When am i true ");
 							}
 							this.blifPins.get(inputPin.get_name()).add(inputPin);
 						}
@@ -671,9 +799,10 @@ public class Architecture {
 		Output.println("\tArchitecture generation took " + t.toString());
 		this.test();
 	}
-	private String process_block_name(String blockName, HashMap<String,Block> interconnectedBlocks){
+
+	private String process_block_name(String blockName, HashMap<String,Element> interconnectedBlocks){
 		if(blockName.contains("[") && blockName.contains("]") && blockName.contains(":")){
-			
+			//Output.println("Am i true?");
 			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
 			int startNum = Integer.parseInt(blockName.substring(blockName.indexOf("[")+1,blockName.indexOf(":")));
 			int endNum = Integer.parseInt(blockName.substring(blockName.indexOf(":")+1,blockName.indexOf("]")));
@@ -687,6 +816,7 @@ public class Architecture {
 			//}
 			return blockName.substring(0,blockName.indexOf("["));
 		}else if(blockName.contains("[") && blockName.contains("]") && !blockName.contains(":")){
+			//Output.println("Or am i true??" );
 			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
 			if(Integer.parseInt(block.get_value("num_pb")) == 1){
 				return blockName.substring(0,blockName.indexOf("["));
@@ -694,9 +824,42 @@ public class Architecture {
 				return blockName.substring(0,blockName.indexOf("["));
 			}
 		}else{
+			//Output.println("Why is it so tough?" );
 			return blockName;
 		}
 	}
+	
+	/*
+	private String process_block_name(String blockName, HashMap<String,Block> interconnectedBlocks){
+		if(blockName.contains("[") && blockName.contains("]") && blockName.contains(":")){
+			Output.println("Am i true?");
+			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
+			int startNum = Integer.parseInt(blockName.substring(blockName.indexOf("[")+1,blockName.indexOf(":")));
+			int endNum = Integer.parseInt(blockName.substring(blockName.indexOf(":")+1,blockName.indexOf("]")));
+			if(endNum < startNum){
+				int temp = endNum;
+				endNum = startNum;
+				startNum = temp;
+			}
+			//if(Integer.parseInt(block.get_value("num_pb")) != (endNum - startNum + 1)){
+			//	ErrorLog.print("Non symmetric connections for block " + blockName);
+			//}
+			return blockName.substring(0,blockName.indexOf("["));
+		}else if(blockName.contains("[") && blockName.contains("]") && !blockName.contains(":")){
+			Output.println("Or am i true??" );
+			Element block = interconnectedBlocks.get(blockName.substring(0,blockName.indexOf("[")));
+			if(Integer.parseInt(block.get_value("num_pb")) == 1){
+				return blockName.substring(0,blockName.indexOf("["));
+			}else{
+				return blockName.substring(0,blockName.indexOf("["));
+			}
+		}else{
+			Output.println("Why is it so tough?" );
+			return blockName;
+		}
+	}
+	*/
+	/*
 	private ArrayList<Pin> get_pins(String portName, Block block){
 		if(portName.contains("[") && portName.contains("]") && portName.contains(":")){
 			Port port = block.get_port(portName.substring(0,portName.indexOf("[")));
@@ -723,6 +886,35 @@ public class Architecture {
 			return port.get_pins();
 		}
 	}
+	*/
+	
+	private ArrayList<Pin> get_pins(String portName, Element block){
+		if(portName.contains("[") && portName.contains("]") && portName.contains(":")){
+			Port port = block.get_port(portName.substring(0,portName.indexOf("[")));
+			int startNum = Integer.parseInt(portName.substring(portName.indexOf("[")+1,portName.indexOf(":")));
+			int endNum = Integer.parseInt(portName.substring(portName.indexOf(":")+1,portName.indexOf("]")));
+			if(endNum < startNum){
+				int temp = endNum;
+				endNum = startNum;
+				startNum = temp;
+			}
+			ArrayList<Pin> pins = new ArrayList<Pin>();
+			for(int pinNum=startNum;pinNum<=endNum;pinNum++){
+				pins.add(port.get_pin(pinNum));
+			}
+			return pins;
+		}else if(portName.contains("[") && portName.contains("]") && !portName.contains(":")){
+			Port port = block.get_port(portName.substring(0,portName.indexOf("[")));
+			int pinNum = Integer.parseInt(portName.substring(portName.indexOf("[")+1,portName.indexOf("]")));
+			ArrayList<Pin> pins = new ArrayList<Pin>();
+			pins.add(port.get_pin(pinNum));
+			return pins;
+		}else{
+			Port port = block.get_port(portName);
+			return port.get_pins();
+		}
+	}
+	
 	private HashMap<String, Block> get_interconnected_blocks(Mode current){
 		HashMap<String, Block> interconnectedBlocks = new HashMap<String, Block>();
 		Element parent = current.get_parent();
@@ -736,8 +928,62 @@ public class Architecture {
 		}
 		return interconnectedBlocks;
 	}
+	private HashMap<String, Element> get_interconnected_blocks(Element current){
+		HashMap<String, Element> interconnectedBlocks = new HashMap<String, Element>();
+		//Output.println("The current is " + current.get_name() + " And its type is " + current.get_type());
+		//Element parent = null;
+		Element parent = current.get_parent();
+		if(current.get_type().equals("pb_type"))
+		{
+			parent = current;
+		}
+		else {
+			parent = current.get_parent();
+		}
+		
+		//Why will there be a condition of mode followed by mode??
+		/*if(parent.get_type().equals("mode"))
+		{
+			Output.println("The parent before is " + parent.get_name());
+			parent = parent.get_parent();
+			Output.println("The parent after is " + parent.get_name());
+		}*/
+		//Blocks interconnection : multiple pbtypes in the same mode
+		interconnectedBlocks.put(parent.get_name(), (Element)parent);
+		for(Element child:current.get_children()){
+			if(!interconnectedBlocks.containsKey(child.get_name())){
+				interconnectedBlocks.put(child.get_name(), (Element)child);
+			}else{
+				ErrorLog.print("Duplicate child block names");
+			}
+		}
+		return interconnectedBlocks;
+	}	
+	/*
+	private HashMap<String, Block> get_interconnected_blocks(Block current){
+		HashMap<String, Block> interconnectedBlocks = new HashMap<String, Block>();
+		Element parent = current.get_parent();
+		//Output.println("The parent type is " + parent.get_type());
+		if(parent.get_type().equals("mode"))
+		{
+			parent = parent.get_parent();
+		}
+		interconnectedBlocks.put(parent.get_name(), (Block)parent);
+		for(Element child:current.get_children()){
+			if(!interconnectedBlocks.containsKey(child.get_name())){
+				interconnectedBlocks.put(child.get_name(), (Element)child);
+			}else{
+				ErrorLog.print("Duplicate child block names");
+			}
+		}
+		return interconnectedBlocks;
+	}
+*/
 	private void test(){
 		for(String blifModel:this.blifBlocks.keySet()){
+			//Output.println("The blif model is defined as "+ blifModel );
+			if(!blifModel.equals(".names"))
+			{
 			for(Block blifBlock:this.blifBlocks.get(blifModel)){
 				for(Port inputPort:blifBlock.get_input_and_clock_ports()){
 					for(Pin inputPin:inputPort.get_pins()){
@@ -755,10 +1001,12 @@ public class Architecture {
 				}
 			}
 		}
+		}
 	}
 	
 	//Architecture dimensions
 	public void initializeDimensions(){
+		//TODO: Add support for auto + Fixed layout
 		for(int i=0; i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("layout") && line.contains("width") && line.contains("height")){
@@ -780,7 +1028,138 @@ public class Architecture {
 						this.sizeY = Integer.parseInt(word);
 					}
 				}
+			}/*
+			 * //DSP, RAM block size private int DSPht; private int RAMht; private int
+			 * DSPwt; private int RAMwt; //DSP, RAM repeat locations private int DSPx;
+			 * private int RAMx;
+			 */
+		}
+	}
+	
+	public void HardBlock_dimensions(){
+	//	Map<String, Integer> alldimensions = new HashMap<>();
+		for(int i=0; i<this.lines.size();i++){
+			String line = this.lines.get(i);
+			if(line.contains("tile") && line.contains("dsp")) {
+				String[]words = line.split(" ");
+				for(String word:words){
+					if(word.contains("width")){
+						word = word.replace("\"", "");
+						word = word.replace("width", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.DSPwt = Integer.parseInt(word);
+						//Output.println("The width of DSP is " + this.DSPwt);
+						this.alldimensions.put("DSPwt", this.DSPwt);
+					}else if(word.contains("height")){
+						word = word.replace("\"", "");
+						word = word.replace("height", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.DSPht = Integer.parseInt(word);
+						//Output.println("The height of DSP is " + this.DSPht);
+						this.alldimensions.put("DSPht", this.DSPht);
+					}
+				}
+			}else if(line.contains("tile") && line.contains("memory")) {
+				String[]words = line.split(" ");
+				for(String word:words){
+					if(word.contains("width")){
+						word = word.replace("\"", "");
+						word = word.replace("width", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.RAMwt = Integer.parseInt(word);
+						//Output.println("The width of RAM is " + this.RAMwt);
+						this.alldimensions.put("RAMwt", this.RAMwt);
+					}else if(word.contains("height")){
+						word = word.replace("\"", "");
+						word = word.replace("height", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.RAMht = Integer.parseInt(word);
+						//Output.println("The height of RAM is " + this.RAMht);
+						this.alldimensions.put("RAMht", this.RAMht);
+					}
+				}
+			}else if(line.contains("col") && line.contains("dsp")) {
+				/*
+				 * <col type="dsp_top" startx="6" starty="1" repeatx="16" priority="20"/> <col
+				 * type="memory" startx="2" starty="1" repeatx="16" priority="20"/>
+				 */
+				String[]words = line.split(" ");
+				for(String word:words){
+					if(word.contains("repeatx")){
+						word = word.replace("\"", "");
+						word = word.replace("repeatx", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.DSPx = Integer.parseInt(word);
+						//Output.println("The repeat frequency of DSP is " + this.DSPx);
+						this.alldimensions.put("DSPx", this.DSPx);
+					}else if(word.contains("startx")){
+						word = word.replace("\"", "");
+						word = word.replace("startx", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.DSPstartx = Integer.parseInt(word);
+						//Output.println("The start location of DSP is " + this.DSPstartx);
+						this.alldimensions.put("DSPstartx", this.DSPstartx);
+					}else if(word.contains("priority")) {
+						word = word.replace("\"", "");
+						word = word.replace("priority", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.DSPpriority = Integer.parseInt(word);
+						//Output.println("The priority of DSP is " + this.DSPpriority);
+						this.alldimensions.put("DSPpriority", this.DSPpriority);
+					}
+				}
+			}else if(line.contains("col") && line.contains("memory")) {
+				String[]words = line.split(" ");
+				for(String word:words){
+					if(word.contains("repeatx")){
+						word = word.replace("\"", "");
+						word = word.replace("repeatx", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.RAMx = Integer.parseInt(word);
+						//Output.println("The repeat frequency of DSP is " + this.RAMx);
+						this.alldimensions.put("RAMx", this.RAMx);
+					}else if(word.contains("startx")){
+						word = word.replace("\"", "");
+						word = word.replace("startx", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.RAMstartx = Integer.parseInt(word);
+						//Output.println("The start location of DSP is " + this.RAMstartx);
+						this.alldimensions.put("RAMstartx", this.RAMstartx);
+					}else if(word.contains("priority")) {
+						word = word.replace("\"", "");
+						word = word.replace("priority", "");
+						word = word.replace("=", "");
+						word = word.replace("/", "");
+						word = word.replace(">", "");
+						this.RAMpriority = Integer.parseInt(word);
+						//Output.println("The priority of DSP is " + this.RAMpriority);
+						this.alldimensions.put("RAMpriority", this.RAMpriority);
+					}
+				}
 			}
+			/*
+			 * //DSP, RAM block size private int DSPht; private int RAMht; private int
+			 * DSPwt; private int RAMwt; //DSP, RAM repeat locations private int DSPx;
+			 * private int RAMx;
+			 */
 		}
 	}
 	public void removeDimensions(){
@@ -793,6 +1172,7 @@ public class Architecture {
 	}
 	
 	//GENERATE NETLIST SPECIFIC ARCHITECTURES
+	
 	public void generate_light_architecture(Set<String> usedModelsInNetlist){
 		Output.println("Generate light architecture:");
 		
@@ -810,19 +1190,12 @@ public class Architecture {
 		unremovableBlocks.add("dell");
 		unremovableBlocks.add("pad");
 		unremovableBlocks.add("inpad");
-		//unremovableBlocks.add("stratixiv_lcell");
-		//unremovableBlocks.add("lcell_comb");
-		//unremovableBlocks.add("Huawei_LUT");
-		unremovableBlocks.add("carry");
-		//Output.println("unremovable blocks in ligh arch " + unremovableBlocks);
 		
 		this.analyze_blocks(usedModelsInNetlist, unremovableBlocks);
 		HashMap<String, ArrayList<String>> models = new HashMap<String, ArrayList<String>>();
 		ArrayList<String> device = new ArrayList<String>();
 		boolean modelLines = false;
 		boolean deviceLines = false;
-		//ADD IF CONDITION
-		this.removedModels.remove("stratixiv_lcell_comb");
 		for(int i=0;i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("<models>")){
@@ -913,10 +1286,7 @@ public class Architecture {
 		unremovableBlocks.add("pll_normal");
 		
 		unremovableBlocks.add("LAB");
-		//unremovableBlocks.add("stratixiv_lcell");
-		unremovableBlocks.add("stratixiv_lcell");
-		unremovableBlocks.add("lcell_comb");
-		
+
 		unremovableBlocks.add("DSP");
 		unremovableBlocks.add("full_DSP");
 		unremovableBlocks.add("half_DSP");
@@ -992,7 +1362,6 @@ public class Architecture {
 		ArrayList<String> device = new ArrayList<String>();
 		boolean modelLines = false;
 		boolean deviceLines = false;
-		this.removedModels.remove("stratixiv_lcell_comb");
 		for(int i=0;i<this.lines.size();i++){
 			String line = this.lines.get(i);
 			if(line.contains("<models>")){
@@ -1091,7 +1460,6 @@ public class Architecture {
 		for(Element removedBlock:removedBlocks){
 			this.complexBlocks.remove(removedBlock);
 			this.removedModels.addAll(removedBlock.get_blif_models());
-			Output.println("Removed block" + removedBlock.get_blif_models());
 		}
 
 		while(!nextLevel.isEmpty()){
@@ -1191,9 +1559,11 @@ public class Architecture {
 	}
 	public int get_connection_delay(P sourcePin, P sinkPin){
 		//Setup time and Tcq delay are included in connection delay
+		
 		String source = null, sourceLight = null;
 		String sink = null, sinkLight = null;
 		if(sourcePin.has_block() && sinkPin.has_block()){
+			//Output.println("The first condition is true ");
 			sourceLight = sourcePin.get_light_architecture_name();
 			sinkLight = sinkPin.get_light_architecture_name();
 		}else if(sourcePin.has_block() && !sinkPin.has_block()){
@@ -1209,15 +1579,18 @@ public class Architecture {
 			
 		}
 		
+		//Output.println("Source light and sink light is " + sourceLight + sinkLight);
 		Integer connectionDelay = null;
+		//Output.println("the size of the delay map before initialisation is " + this.delayMap.size());
 		HashMap<String,Integer> tempMap = this.delayMap.get(sourceLight);
+		
+
 		if(tempMap != null){
 			connectionDelay = tempMap.get(sinkLight);
 			if(connectionDelay == null){
 				if(sourcePin.has_block() && sinkPin.has_block()){
 					source = sourcePin.get_detailed_architecture_name();
 					sink = sinkPin.get_detailed_architecture_name();
-					Output.println("Source pin and sink pin is " + source + " " + sink);
 				}else if(sourcePin.has_block() && !sinkPin.has_block()){
 					source = sourcePin.get_detailed_architecture_name();
 					sink = ".output" + "." + sinkPin.get_port_name() + "[" +  sinkPin.get_pin_num() + "]";
@@ -1229,9 +1602,11 @@ public class Architecture {
 					sink = ".output" + "." + sinkPin.get_port_name() + "[" +  sinkPin.get_pin_num() + "]";
 				}
 				connectionDelay = this.get_connection_delay(source, sink, sourceLight, sinkLight);
+				
 				tempMap.put(sinkLight, connectionDelay);
 			}
 		}else{
+			//Output.println("The temp is null");
 			tempMap = new HashMap<String,Integer>();
 			if(sourcePin.has_block() && sinkPin.has_block()){
 				source = sourcePin.get_detailed_architecture_name();
@@ -1246,6 +1621,7 @@ public class Architecture {
 				source =".input" + "." + sourcePin.get_port_name() + "[" +  sourcePin.get_pin_num() + "]";
 				sink = ".output" + "." + sinkPin.get_port_name() + "[" +  sinkPin.get_pin_num() + "]";
 			}
+			//Output.println("Second one is true");
 			connectionDelay = this.get_connection_delay(source, sink, sourceLight, sinkLight);
 			tempMap.put(sinkLight, connectionDelay);
 			this.delayMap.put(sourceLight, tempMap);
@@ -1267,8 +1643,6 @@ public class Architecture {
 		for(Pin p:this.pins){
 			if(p.get_name().equals(sourcePinName)){
 				p.set_previous(p);
-				
-				//Clock to output delay is included in connection delay
 				Block block = p.get_parent();
 				if(block.has_clock_to_output_delay(p.get_port_name())){
 					p.set_delay(block.get_clock_to_output(p.get_port_name()));
@@ -1279,8 +1653,10 @@ public class Architecture {
 				p.set_previous(null);
 				p.set_delay(Integer.MAX_VALUE);
 			}
+			//Output.println("The pin is " + p.get_name() + " The delay is " + p.get_delay());
 			q.add(p);
 		}
+		//Output.println("The source pin is " + sourcePinName + "The sink pin is " + sinkPinName);
 		Pin endPin = this.dijkstra(q, sinkPinName);
 		int minDelay = endPin.get_delay();
 		
@@ -1289,6 +1665,7 @@ public class Architecture {
 		Pin sink = endPin;
 		while(!sink.get_name().equals(sourcePinName)){
 			Pin source = sink.get_previous();
+			//Output.println("The source is " + source.get_name());
 			if(this.connections.get(source.get_number()).get(sink.get_number()).is_global()){
 				if(!global){
 					global = true;
@@ -1307,14 +1684,24 @@ public class Architecture {
 	}
 	private Pin dijkstra(PriorityQueue<Pin> q, String stopCondition){//, String sourceType, String sinkType){
 		Pin u,v;
+		
+		//printing the priority queue
+		
+        
 		while(!q.isEmpty()){
+			
 			u = q.poll();
-			if(u.get_name().equals(stopCondition)) return u;
-			if(u.get_delay() == Integer.MAX_VALUE) break;
+			//Output.println("The value of u is " + u.get_name());
+
+			if(u.get_name().equals(stopCondition))
+				{
+				//Output.println("The path is " + u.printPath());
+				return u;
+				}
+			if(u.get_delay() == Integer.MAX_VALUE)break;
+
 			for(Map.Entry<Pin, Integer> a:u.get_neighbours().entrySet()){
-				//Output.println(u.get_neighbours().size());
 				v = a.getKey();
-					
 				final int alternateDelay = u.get_delay() + a.getValue();
 				if(alternateDelay < v.get_delay()){
 					q.remove(v);
@@ -1322,8 +1709,11 @@ public class Architecture {
 					v.set_previous(u);
 					q.add(v);
 				}
+				
 			}
+			
 		}
+		
 		ErrorLog.print("Pin " + stopCondition + " not found in Dijkstra algorithm");
 		return null;
 	}
@@ -1332,10 +1722,23 @@ public class Architecture {
 		int req = sinkPin.get_required_time();
 		int connDelay = this.get_connection_delay(sourcePin, sinkPin);
 		int slack = req - arr - connDelay;
+		Output.println("The source pin is " + sourcePin.get_id() + " the sink pin is " + sinkPin.get_id() + " the arrival time is " + arr + " the required time is " + req + " the conn delay is " + connDelay + " the slack is " + slack);
 		if(slack < 0){
 			Output.println("Slack should be larger than zero but is equal to " + slack);
 		}
 		return slack;
+	}
+	
+	public int slackSLL(P sourcePin, P sinkPin){
+		int arr = sourcePin.get_arrival_time();
+		int req = sinkPin.get_required_time();
+		int connDelay = this.get_connection_delay(sourcePin, sinkPin);
+		int slackSLL = req - arr - connDelay - 360;
+		Output.println("The source pin is " + sourcePin.get_id() + " the sink pin is " + sinkPin.get_id() + " the arrival time is " + arr + " the required time is " + req + " the conn delay is " + connDelay + " the slack is " + slackSLL + " with SLL");
+		if(slackSLL < 0){
+			//Output.println("Slack should be larger than zero but is equal to " + slackSLL);
+		}
+		return slackSLL;
 	}
 	public boolean is_connected_via_global_connection(String sourcePinName, String sinkPinName){
 		//REMOVE M9K AND M144K APPENDIX
@@ -1444,4 +1847,9 @@ public class Architecture {
 	public int getSizeY(){
 		return this.sizeY;
 	}
+	public Map<String, Integer> getFPGAdimensionsMap()
+	{
+	    return this.alldimensions;
+	}
+	
 }

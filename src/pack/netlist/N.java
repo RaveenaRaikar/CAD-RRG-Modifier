@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 
 import pack.util.ErrorLog;
+import pack.util.Output;
 
 public class N implements Comparable<N>{
 	private String name;

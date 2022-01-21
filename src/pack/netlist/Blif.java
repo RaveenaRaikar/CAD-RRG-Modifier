@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 
+import pack.partition.Partition;
 import pack.util.Output;
 
 public class Blif {
@@ -75,12 +76,16 @@ public class Blif {
 	public String get_dummy_net(){
 		return "dummy" + dummy_counter++;
 	}
-	public void write(){
+	public void write(boolean dielevel){
 		try {
+			//Output.println("The value of die part is " + Partition.diePart);
 			FileWriter writer = null;
 			if(num < 0){
 				writer = new FileWriter(this.folder + blif + ".blif");
-			}else{
+			}else if(dielevel){
+				writer = new FileWriter(this.folder + this.blif + "_" + this.simulationID + "_die_" + this.num + ".blif");
+			}
+			else{
 				writer = new FileWriter(this.folder + this.blif + "_" + this.simulationID + "_" + this.num + ".blif");
 			}
 	        BufferedWriter bufferedWriter = new BufferedWriter(writer);
@@ -169,6 +174,7 @@ public class Blif {
 
 			bufferedWriter.flush();
 			bufferedWriter.close();
+			//Partition.diePart = true;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

@@ -9,6 +9,8 @@ import pack.util.Util;
 public class Param{
 	private int nparts;
 	private int ubfactor;
+	private int ndie;
+	private int dieubfactor;
 	private int nruns;
 	private int cType;
 	private int rType;
@@ -21,9 +23,11 @@ public class Param{
 	private String hmetis_folder;
 	private String circuitName;
 	private int simulationID;
+	private boolean diePart = false;
 		
-	public Param(Simulation simulation){
-		this.nparts = 2;
+	public Param(Simulation simulation,boolean diePart){
+		//this.nparts = 2;
+		this.diePart = diePart;
 
 		this.reconst = 0;
 		this.dbglvl = 0;
@@ -31,89 +35,101 @@ public class Param{
 		int quality = simulation.getIntValue("hmetis_quality");
 		this.ubfactor =  simulation.getIntValue("unbalance_factor");
 		this.maxFanout = simulation.getIntValue("max_fanout");
-		
-		if(quality == 1){
-			this.cType = 1;
-			this.rType = 3;
-			this.vCycle = 3;
-			this.nruns = 10;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t==> 1\t5,76 s\t471");
-			Output.println("\t\t    2\t3,38 s\t483");
-			Output.println("\t\t    3\t2,00 s\t504");
-			Output.println("\t\t    4\t0,58 s\t606");
-			Output.println("\t\t    5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else if(quality == 2){
-			this.cType = 1;
-			this.rType = 3;
-			this.vCycle = 1;
-			this.nruns = 10;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t    1\t5,76 s\t471");
-			Output.println("\t\t==> 2\t3,38 s\t483");
-			Output.println("\t\t    3\t2,00 s\t504");
-			Output.println("\t\t    4\t0,58 s\t606");
-			Output.println("\t\t    5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else if(quality == 3){
-			this.cType = 1;
-			this.rType = 3;
-			this.vCycle = 1;
-			this.nruns = 5;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t    1\t5,76 s\t471");
-			Output.println("\t\t    2\t3,38 s\t483");
-			Output.println("\t\t==> 3\t2,00 s\t504");
-			Output.println("\t\t    4\t0,58 s\t606");
-			Output.println("\t\t    5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else if(quality == 4){
-			this.cType = 1;
-			this.rType = 3;
-			this.vCycle = 0;
-			this.nruns = 2;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t    1\t5,76 s\t471");
-			Output.println("\t\t    2\t3,38 s\t483");
-			Output.println("\t\t    3\t2,00 s\t504");
-			Output.println("\t\t==> 4\t0,58 s\t606");
-			Output.println("\t\t    5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else if(quality == 5){
-			this.cType = 2;
-			this.rType = 3;
-			this.vCycle = 0;
-			this.nruns = 1;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t    1\t5,76 s\t471");
-			Output.println("\t\t    2\t3,38 s\t483");
-			Output.println("\t\t    3\t2,00 s\t504");
-			Output.println("\t\t    4\t0,58 s\t606");
-			Output.println("\t\t==> 5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else if(quality == 6){
-			this.cType = 1;
-			this.rType = 3;
-			this.vCycle = 0;
-			this.nruns = 1;
-			Output.println("\t\tquality\truntime\tcut");
-			Output.println("\t\t    1\t5,76 s\t471");
-			Output.println("\t\t    2\t3,38 s\t483");
-			Output.println("\t\t    3\t2,00 s\t504");
-			Output.println("\t\t    4\t0,58 s\t606");
-			Output.println("\t\t    5\t0,32 s\t724");
-			Output.println("\t\t==> 6\t0,27 s\t742");
-			Output.newLine();
-		}else{
-			ErrorLog.print("Unknown hmetis quality parameter => " + quality);
+		this.ndie = simulation.getIntValue("Number_of_die");
+		this.dieubfactor = simulation.getIntValue("UB_factor_die");
+		if(this.diePart)
+		{
+			this.nparts = this.ndie;
+			this.ubfactor = this.dieubfactor;
+			Output.println("The number of parts is " + this.nparts + " and the unbalance factor is " + this.ubfactor);
+		}else {
+			this.nparts = 2;
 		}
-		
+				
+		//if(!this.diePart)
+		{
+			if(quality == 1){
+				this.cType = 1;
+				this.rType = 3;
+				this.vCycle = 3;
+				this.nruns = 10;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t==> 1\t5,76 s\t471");
+				Output.println("\t\t    2\t3,38 s\t483");
+				Output.println("\t\t    3\t2,00 s\t504");
+				Output.println("\t\t    4\t0,58 s\t606");
+				Output.println("\t\t    5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else if(quality == 2){
+				this.cType = 1;
+				this.rType = 3;
+				this.vCycle = 1;
+				this.nruns = 10;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t    1\t5,76 s\t471");
+				Output.println("\t\t==> 2\t3,38 s\t483");
+				Output.println("\t\t    3\t2,00 s\t504");
+				Output.println("\t\t    4\t0,58 s\t606");
+				Output.println("\t\t    5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else if(quality == 3){
+				this.cType = 1;
+				this.rType = 3;
+				this.vCycle = 1;
+				this.nruns = 5;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t    1\t5,76 s\t471");
+				Output.println("\t\t    2\t3,38 s\t483");
+				Output.println("\t\t==> 3\t2,00 s\t504");
+				Output.println("\t\t    4\t0,58 s\t606");
+				Output.println("\t\t    5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else if(quality == 4){
+				this.cType = 1;
+				this.rType = 3;
+				this.vCycle = 0;
+				this.nruns = 2;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t    1\t5,76 s\t471");
+				Output.println("\t\t    2\t3,38 s\t483");
+				Output.println("\t\t    3\t2,00 s\t504");
+				Output.println("\t\t==> 4\t0,58 s\t606");
+				Output.println("\t\t    5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else if(quality == 5){
+				this.cType = 2;
+				this.rType = 3;
+				this.vCycle = 0;
+				this.nruns = 1;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t    1\t5,76 s\t471");
+				Output.println("\t\t    2\t3,38 s\t483");
+				Output.println("\t\t    3\t2,00 s\t504");
+				Output.println("\t\t    4\t0,58 s\t606");
+				Output.println("\t\t==> 5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else if(quality == 6){
+				this.cType = 1;
+				this.rType = 3;
+				this.vCycle = 0;
+				this.nruns = 1;
+				Output.println("\t\tquality\truntime\tcut");
+				Output.println("\t\t    1\t5,76 s\t471");
+				Output.println("\t\t    2\t3,38 s\t483");
+				Output.println("\t\t    3\t2,00 s\t504");
+				Output.println("\t\t    4\t0,58 s\t606");
+				Output.println("\t\t    5\t0,32 s\t724");
+				Output.println("\t\t==> 6\t0,27 s\t742");
+				Output.newLine();
+			}else{
+				ErrorLog.print("Unknown hmetis quality parameter => " + quality);
+			}
+		}
 		this.hmetis_folder = simulation.getStringValue("hmetis_folder");
 		this.circuitName = simulation.getStringValue("circuit");
 		this.simulationID = simulation.getSimulationID();
@@ -142,13 +158,31 @@ public class Param{
 		return this.maxFanout;
 	}
 	public String getGraphFile(int thread){
+		//Output.println("The value of die part in get graph file is " + this.diePart );
+		if(this.diePart)
+		{
+		return this.hmetis_folder + "files/" + this.circuitName + "_" + this.simulationID + "_" + thread + "_top";
+		}else
+		{
 		return this.hmetis_folder + "files/" + this.circuitName + "_" + this.simulationID + "_" + thread;
+		}
 	}
-	public String[] getHMetisLine(int thread){
+
+	
+	public String[] getHMetisLine(int thread, boolean diePart){
+		//Output.println("Die partitioning in param in get hmetis line is " + diePart);
+		this.diePart = diePart;
+		if(diePart)
+		{
+			//Output.println("Is this executed");
+			//for top level die partitioning the number of die will be different.
+			return new String[]{this.hmetis_folder + "hmetis", this.getGraphFile(thread), Util.str(this.ndie), Util.str(this.dieubfactor), Util.str(this.nruns), Util.str(this.cType), Util.str(this.rType), Util.str(this.vCycle), Util.str(this.reconst), Util.str(this.dbglvl)};
+		}
 		return new String[]{this.hmetis_folder + "hmetis", this.getGraphFile(thread), Util.str(this.nparts), Util.str(this.ubfactor), Util.str(this.nruns), Util.str(this.cType), Util.str(this.rType), Util.str(this.vCycle), Util.str(this.reconst), Util.str(this.dbglvl)};
 	}
+	
 	public void printHMetisLine(int thread){
-    	for(String part:this.getHMetisLine(thread)){
+    	for(String part:this.getHMetisLine(thread,diePart)){
     		Output.print(part + " ");
     	}
     	Output.newLine();

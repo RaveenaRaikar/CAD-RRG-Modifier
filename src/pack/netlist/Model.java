@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import pack.util.ErrorLog;
+import pack.util.Output;
 
 public class Model {
 	private String name;
@@ -17,8 +18,9 @@ public class Model {
 	private int occurences;
 	
 	//TODO make architecture independent
-	private int ramSlices9;
-	private int ramSlices144;
+	//private int ramSlices9;
+//	private int ramSlices144;
+	private int ramSlices20;
 
 	public Model(String name, String archFile){
 		this.name = name;
@@ -27,8 +29,11 @@ public class Model {
 		this.pinsOnPort = new HashMap<String,Integer>();
 		this.occurences = 0;
 		
-		if(this.name.contains("stratixiv_ram_block")){
-			this.assign_stratixiv_ram_slices(archFile);
+	//	if(this.name.contains("stratixiv_ram_block")){
+	//		this.assign_stratixiv_ram_slices(archFile);
+	//	}
+		if(this.name.contains("port_ram")){
+			this.assign_ram_slices(archFile);
 		}
 	}
 	public Model(Model model){
@@ -47,10 +52,12 @@ public class Model {
 		}
 		this.occurences = 0;
 		
-		this.ramSlices9 = model.get_stratixiv_ram_slices_9();
-		this.ramSlices144 = model.get_stratixiv_ram_slices_144();
+		//this.ramSlices9 = model.get_stratixiv_ram_slices_9();
+		//this.ramSlices144 = model.get_stratixiv_ram_slices_144();
+		this.ramSlices20 = model.get_ram_slices();
+		
 	}
-	public Model(Model model, String newName){
+/*	public Model(Model model, String newName){
 		this.name = newName;
 		this.inputPorts = new ArrayList<String>();
 		for(String inputPort:model.get_input_ports()){
@@ -79,6 +86,7 @@ public class Model {
 			ErrorLog.print("Unexpexted name for new model: " + newName);
 		}
 	}
+	*/
 	public String get_name() {
 		return name;
 	}
@@ -205,12 +213,16 @@ public class Model {
 	}
 	
 	//RAM SLICES
-	public int get_stratixiv_ram_slices_9(){
-		return this.ramSlices9;
+	public int get_ram_slices(){
+		return this.ramSlices20;
 	}
-	public int get_stratixiv_ram_slices_144(){
-		return this.ramSlices144;
-	}
+	//public int get_stratixiv_ram_slices_9(){
+	//	return this.ramSlices9;
+//	}
+	//public int get_stratixiv_ram_slices_144(){
+	//	return this.ramSlices144;
+	//}
+	/*
 	private void assign_stratixiv_ram_slices(String archFile){
 		boolean M9K = false;
 		boolean M144K = false;
@@ -329,4 +341,148 @@ public class Model {
 			ErrorLog.print("No M144K RAM block found in architecture");
 		}
 	}
+}*/
+private void assign_ram_slices(String archFile){
+	boolean M20K =false;
+//	boolean M9K = false;
+//	boolean M144K = false;
+	boolean readPort = false;
+	
+	boolean M20KFound = false;
+//	boolean M9KFound = false;
+//	boolean M144KFound = false;
+	//SINGLE PORT MODE
+	int dataIn = 0;
+	int dataOut = 0;
+	//DUAL PORT MODE
+	int dataIn1 = 0;
+	int dataIn2 = 0;
+	int dataOut1 = 0; 
+	int dataOut2 = 0;
+	
+	int num_pb = 0;
+	
+	try {
+		BufferedReader br = new BufferedReader(new FileReader(archFile));
+	    String line = br.readLine();
+	    while (line != null) {
+	    	if(line.contains("<pb_type") && line.contains("memory")){
+	    		if(!line.contains("class")) {
+	    			//Output.println("memory is true ");
+		    		M20K = true;
+					//M144K = false;
+					readPort = false;
+					/*if(!M20KFound){
+						M20KFound = true;
+					}else{
+						ErrorLog.print("Already an M20K RAM block found in architecture");
+					}*/
+	    		}
+			}
+			if(M20K){
+				//Output.println("The value of this.name is " + this.name);
+				if(line.contains("\".subckt " + this.name + "\"")){
+					//Output.println("The line is " + line);
+					readPort = true;
+					dataIn = 0;
+					dataOut = 0;
+					dataIn1 = 0;
+					dataIn2 = 0;
+					dataOut1 = 0;
+					dataOut2 = 0;
+
+					int start = line.indexOf("num_pb=");
+					start = line.indexOf("\"", start+1);
+					int stop = line.indexOf("\"", start+1);
+					num_pb = Integer.parseInt(line.substring(start+1, stop));
+				}
+			}
+			if(readPort){				
+				if(line.contains("port_class=\"data_in\"")){
+					//Output.println("AM I TRUE??");
+					dataIn = parse(line);
+				}else if(line.contains("port_class=\"data_in1\"")){
+					//Output.println("AM I TRUE version1 ??");
+					dataIn1 = parse(line);
+				}else if(line.contains("port_class=\"data_in2\"")){
+					dataIn2 = parse(line);
+				}else if(line.contains("port_class=\"data_out\"")){
+					dataOut = parse(line);
+				}else if(line.contains("port_class=\"data_out1\"")){
+					dataOut1 = parse(line);
+				}else if(line.contains("port_class=\"data_out2\"")){
+					dataOut2 = parse(line);
+				}
+			}
+			if(line.contains("</pb_type>") && readPort){
+				int memorySlices = 0;
+				if(dataIn > 0) {
+					memorySlices = dataIn1;
+					//Output.println("The number of memory slices are " +memorySlices);
+				}
+				if(dataIn1 > 0){
+					if(memorySlices == 0){
+						memorySlices = dataIn1;
+						//Output.println("The number of memory slices are " +memorySlices);
+					}else if(dataIn1 != memorySlices){
+						ErrorLog.print(this.name + "\n\tdata_in1\t" + dataIn1 + "\n\tdata_in2\t" + dataIn2 + "\n\tdata_out1\t" + dataOut1 + "\n\tdata_out2\t" + dataOut2);
+					}					
+				}
+				if(dataIn2 > 0){
+					if(memorySlices == 0){
+						memorySlices = dataIn2;
+					}else if(dataIn2 != memorySlices){
+						ErrorLog.print(this.name + "\n\tdata_in1\t" + dataIn1 + "\n\tdata_in2\t" + dataIn2 + "\n\tdata_out1\t" + dataOut1 + "\n\tdata_out2\t" + dataOut2);
+					}
+				}
+				if(dataOut > 0){
+					if(memorySlices == 0){
+						memorySlices = dataOut;
+					}else if(dataOut != memorySlices){
+						ErrorLog.print(this.name + "\n\tdata_in\t" + dataIn + "\n\tdata_out\t" + dataOut);
+					}
+				}
+				if(dataOut1 > 0){
+					if(memorySlices == 0){
+						memorySlices = dataOut1;
+					//	Output.println("The numbwe );
+					}else if(dataOut1 != memorySlices){
+						ErrorLog.print(this.name + "\n\tdata_in1\t" + dataIn1 + "\n\tdata_in2\t" + dataIn2 + "\n\tdata_out1\t" + dataOut1 + "\n\tdata_out2\t" + dataOut2);
+					}
+				}
+				if(dataOut2 > 0){
+					if(memorySlices == 0){
+						memorySlices = dataOut2;
+					}else if(dataOut2 != memorySlices){
+						ErrorLog.print(this.name + "\n\tdata_in1\t" + dataIn1 + "\n\tdata_in2\t" + dataIn2 + "\n\tdata_out1\t" + dataOut1 + "\n\tdata_out2\t" + dataOut2);
+					}
+				}
+				if(memorySlices == 0){
+					memorySlices = num_pb;
+				}
+				
+				if(M20K){
+					this.ramSlices20 = memorySlices;
+				//}else if(M144K){
+				//	this.ramSlices144 = memorySlices;
+				}else{
+					ErrorLog.print(this.name);
+				}
+				M20K = false;
+			//	M144K = false;
+				readPort = false;
+			}
+	        line = br.readLine();
+	    }
+	    br.close();
+	}catch (IOException e) {
+		e.printStackTrace();
+	}
+//	if(!M20KFound){
+//		ErrorLog.print("No M20K RAM block found in architecture");
+//	}
+	//if(!M144KFound){
+	//	ErrorLog.print("No M144K RAM block found in architecture");
+	//}
+}
 }

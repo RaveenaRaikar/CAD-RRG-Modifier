@@ -23,6 +23,9 @@ public class Simulation{
 		
 		this.addOption(new Option("hmetis_folder","folder with hMetis (required for partitioning phase)", String.class));
 		this.addOption(new Option("hmetis_quality","quality setting for hMetis paritioning", 2));
+		
+		this.addOption(new Option("Number_of_die","Number of dies in FPGA fabric", 2));
+		this.addOption(new Option("UB_factor_die","unbalance factor at top level partitioning", 5));
 		this.addOption(new Option("unbalance_factor","unbalance factor of hMetis paritioning", 25));
 		this.addOption(new Option("max_pack_size","the maxmimum number of blocks in the independent subcircuits for seed based packing", 2500));
 		this.addOption(new Option("max_fanout","the maximum fanout of the added nets during partitioning", 100));

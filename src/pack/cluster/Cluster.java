@@ -10,6 +10,7 @@ import pack.architecture.Architecture;
 import pack.main.Simulation;
 import pack.netlist.Netlist;
 import pack.partition.Partition;
+import pack.util.Output;
 //import pack.util.Output;
 import pack.util.Util;
 
@@ -21,6 +22,7 @@ public class Cluster {
 
 	private List<LogicBlock> logicBlocks;
 	private List<Netlist> leafNodes;
+	private int partnum;
 
 	public Cluster(Netlist netlist, Architecture architecture, Partition partition, Simulation simulation){
 		this.root = netlist;
@@ -28,10 +30,17 @@ public class Cluster {
 		this.architecture = architecture;
 		this.simulation = simulation;
 	}
+	public Cluster(Netlist netlist, Architecture architecture, Partition partition, Simulation simulation, int partnum){
+		this.root = netlist;
+		this.partition = partition;
+		this.architecture = architecture;
+		this.simulation = simulation;
+		this.partnum = partnum;
+	}
 	public void packing(){
 		this.logicBlocks = new ArrayList<>();
 		this.leafNodes = new ArrayList<>();
-		
+				
 		TPack tpack = new TPack(this.root, this.partition, this.architecture, this.simulation);
 		tpack.seedBasedPacking();
 		this.logicBlocks.addAll(tpack.getLogicBlocks());
@@ -46,7 +55,7 @@ public class Cluster {
 		writer.netlistInputs();
 		writer.netlistOutputs();
 
-		writer.makeNetFile(result_folder);
+		writer.makeNetFile(result_folder,this.partnum);
 
 		writer.printHeaderToNetFile(result_folder);
 		writer.printLogicBlocksToNetFile();
