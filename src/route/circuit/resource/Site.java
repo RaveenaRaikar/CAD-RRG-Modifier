@@ -5,7 +5,7 @@ import route.circuit.architecture.BlockType;
 public class Site {
 
     private final int column, row, height;
-    
+    private final BlockType blockType;
     /***************************************
      * A site can contain multiple instances
      * This is the case for IOs, which have
@@ -20,7 +20,7 @@ public class Site {
     	this.column = column;
         this.row = row;
         this.height = height;
-        
+        this.blockType = blockType;
     	this.capacity = capacity;
     	this.instances = new Instance[this.capacity];
     	for(int i = 0; i < this.capacity; i++){
@@ -38,15 +38,21 @@ public class Site {
     	return this.height;
     }
     
+    public BlockType getblockType() {
+    	return this.blockType;
+    }
+   
     public Instance getInstance(int n) {
     	if(n > (this.capacity - 1)) {
     		throw new RuntimeException();
     	}
+    	
     	return this.instances[n];
     }
     
     public boolean addSource(Source source) {
     	String portName = source.getName();
+
     	for(Instance instance : this.instances) {
     		if(!instance.containsSource(portName)) {
     			instance.addSource(source);
@@ -57,11 +63,15 @@ public class Site {
     }
     public boolean addSink(Sink sink) {
     	String portName = sink.getName();
+
     	for(Instance instance : this.instances) {
+
     		if(!instance.containsSink(portName)) {
+
     			instance.addSink(sink);
     			return true;
     		}
+
     	}
     	return false;
     }
@@ -102,6 +112,7 @@ public class Site {
     	String checkString = this.instances[0].checkString();
     	for(Instance instance : this.instances) {
     		if(!instance.checkString().equals(checkString)) {
+
     			System.err.println("The instances of " + this + " are not equal");
     		}
     	}

@@ -21,21 +21,22 @@ public class PlaceParser {
     private static Pattern sizePattern = Pattern.compile("Array size: (?<width>\\d+) x (?<height>\\d+).*");
     private static Pattern sitePattern = Pattern.compile("(?<block>\\S+)\\s+(?<x>\\d+)\\s+(?<y>\\d+)\\s+(?<z>\\d+).*");
 
+    
+    private Integer halfHeight;
     private Map<String, int[]> coordinates;
     private Circuit circuit;
     private File file;
+    private ResourceGraph rrg;
 
-    public PlaceParser(Circuit circuit, File file) {
+    public PlaceParser(Circuit circuit, File file, ResourceGraph rrg) {
         this.circuit = circuit;
         this.file = file;
+        this.rrg = rrg;
     }
 
     public void parse() throws IOException, PlacementException, BlockNotFoundException, IllegalSizeException {
 
         BufferedReader reader = new BufferedReader(new FileReader(this.file));
-
-        ResourceGraph rrg = this.circuit.getResourceGraph();
-
         // Read all the coordinates and store them
         this.coordinates = new HashMap<String, int[]>();
 
@@ -60,7 +61,6 @@ public class PlaceParser {
             int y = coordinate[1];
             int z = coordinate[2];
 
-            // Bind the site and block to each other
             Site site = rrg.getSite(x, y);
             Instance siteInstance = site.getInstance(z);
             block.setSiteInstance(siteInstance);
@@ -76,27 +76,21 @@ public class PlaceParser {
         Matcher siteMatcher = sitePattern.matcher(line);
         boolean siteMatches = siteMatcher.matches();
 
-
         if(sizeMatches) {
-            int width = Integer.parseInt(sizeMatcher.group("width"));
-            int height = Integer.parseInt(sizeMatcher.group("height"));
-
+        	int width = Integer.parseInt(sizeMatcher.group("width"));
+        	int height = Integer.parseInt(sizeMatcher.group("height"));
+        	this.halfHeight = height;
             int circuitWidth = this.circuit.getWidth();
             int circuitHeight = this.circuit.getHeight();
 
-            if(!(width == circuitWidth && height == circuitHeight)) {
-                throw new IllegalSizeException(String.format(
-                        "Placed circuit doesn't match architecture size: (%d, %d) vs. (%d, %d)",
-                        width, height,
-                        circuitWidth, circuitHeight));
-            }
 
         } else if(siteMatches) {
+        	int dieNum = this.circuit.getCurrentDie();
             String blockName = siteMatcher.group("block");
             int x = Integer.parseInt(siteMatcher.group("x"));
             int y = Integer.parseInt(siteMatcher.group("y"));
             int z = Integer.parseInt(siteMatcher.group("z"));
-
+            
             int[] coordinate = {x, y, z};
             this.coordinates.put(blockName, coordinate);
         }

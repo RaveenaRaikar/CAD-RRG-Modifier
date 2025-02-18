@@ -13,23 +13,18 @@ public class IndexedData {
 	
 	public final int orthoCostIndex;
 	private IndexedData ortho_data;
-	
-	public IndexedData(String line) {
-		while(line.contains("  ")) line = line.replace("  ", " ");
-		
-		String[] words = line.split(" ");
-		
-		this.index = Integer.parseInt(words[1]);
-		this.base_cost = Float.parseFloat(words[5]);
-		
-		this.inv_length = Float.parseFloat(words[7]);
+
+	public IndexedData(int index, float baseCost, int orthoCost, float invLength, float t_linear, float t_quadratic, float c_load) {
+		this.index = index;
+		this.base_cost = baseCost;
+		this.orthoCostIndex = orthoCost;
+		this.inv_length = invLength;
 		this.length = (int)Math.round(1.0 / this.inv_length);
+		this.t_linear = t_linear;
+		this.t_quadratic = t_quadratic;
+		this.c_load = c_load;
 		
-		this.t_linear = Float.parseFloat(words[9]);
-		this.t_quadratic = Float.parseFloat(words[11]);
-		this.c_load = Float.parseFloat(words[13]);
-		
-		this.orthoCostIndex = Integer.parseInt(words[3]);
+	
 		this.ortho_data = null;
 	}
 	
@@ -42,6 +37,10 @@ public class IndexedData {
 	
 	public float getBaseCost() {
 		return this.base_cost;
+	}
+	
+	public int getIndex() {
+		return this.index;
 	}
 	
 	@Override

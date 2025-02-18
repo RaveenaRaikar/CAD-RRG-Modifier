@@ -6,6 +6,7 @@ import java.util.List;
 import route.circuit.architecture.DelayTables;
 import route.circuit.block.GlobalBlock;
 import route.circuit.pin.AbstractPin;
+import route.circuit.timing.TimingNode.Position;
 
 public class TimingNode {
 
@@ -37,7 +38,7 @@ public class TimingNode {
     private boolean[] hasClockDomainAsSink;
     private boolean hasSourceClockDomains = false;
     private boolean hasSinkClockDomains = false;
-    
+   
     public final float clockDelay;
 
     TimingNode(GlobalBlock globalBlock, AbstractPin pin, Position position, int clockDomain, float clockDelay) {
@@ -254,12 +255,12 @@ public class TimingNode {
     	} else {
 			for(TimingEdge sourceEdge : this.sourceEdges) {
 				TimingNode sourceNode = sourceEdge.getSource();
-				
+//				
 				boolean[] sourceNodeClockDomains = sourceNode.setSourceClockDomains();
 				
 				for(int clockDomain = 0; clockDomain < this.numClockDomains; clockDomain++) {
 					if(sourceNodeClockDomains[clockDomain]) {
-						this.hasClockDomainAsSource[clockDomain] = true;
+						this.hasClockDomainAsSource[clockDomain] = true;						
 					}
 				}
 			}
@@ -277,6 +278,8 @@ public class TimingNode {
     		
     		return this.hasClockDomainAsSink;
     	} else {
+    		
+    		//check if the sink node is a SLL and ignore thiss.. do this while building system graph.
 			for(TimingEdge sinkEdge : this.sinkEdges) {
 				TimingNode sinkNode = sinkEdge.getSink();
 

@@ -53,6 +53,7 @@ public class GlobalBlock extends AbstractBlock {
 
         this.siteInstance = siteInstance;
         this.siteInstance.setBlock(this);
+        
     }
 
 

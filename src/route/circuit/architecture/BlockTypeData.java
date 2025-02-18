@@ -206,10 +206,17 @@ class BlockTypeData implements Serializable {
 
     int getModeIndex(int typeIndex, String argumentModeName) {
         String modeName = (argumentModeName == null) ? "" : argumentModeName;
-        return this.modes.get(typeIndex).get(modeName);
+        if (modeName.equals("X")){
+            modeName = "";
+            if (this.modes.get(typeIndex).containsKey(modeName)) {
+                return this.modes.get(typeIndex).get(modeName);
+            } else {
+                return 0;
+            }
+        } else {
+            return this.modes.get(typeIndex).get(modeName);
+        }
     }
-
-
 
     List<BlockType> getBlockTypes(BlockCategory category) {
         return this.blockTypesPerCategory.get(category.ordinal());

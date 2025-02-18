@@ -39,10 +39,11 @@ public class Connection implements Comparable<Connection>  {
 		String sourceName = null;
 		if(this.source.getPortType().isEquivalent()) {
 			sourceName = this.source.getPortName();
-		}else{
+		}else {
 			sourceName = this.source.getPortName() + "[" + this.source.getIndex() + "]";
 		}
 		this.sourceRouteNode = this.source.getOwner().getSiteInstance().getSource(sourceName);
+		
 		if(!source.hasTimingNode()) System.err.println(source + " => " + sink + " | Source " + source + " has no timing node");
 		this.sourceTimingNode = this.source.getTimingNode();
 		
@@ -50,16 +51,19 @@ public class Connection implements Comparable<Connection>  {
 		this.sink = sink;
 		String sinkName = null;
 		if(this.sink.getPortType().isEquivalent()) {
+
 			sinkName = this.sink.getPortName();
 		}else{
 			sinkName = this.sink.getPortName() + "[" + this.sink.getIndex() + "]";
 		}
+		
 		this.sinkRouteNode = this.sink.getOwner().getSiteInstance().getSink(sinkName);
 		if(!sink.hasTimingNode()) System.out.println(source + " => " + sink + " | Sink " + sink + " has no timing node");
 		this.sinkTimingNode = this.sink.getTimingNode();
 		
 		//Timing edge of the connection
 		if(this.sinkTimingNode.getSourceEdges().size() != 1) {
+
 			System.err.println("The connection should have only one edge => " + this.sinkTimingNode.getSourceEdges().size());
 		}
 		if(this.sourceTimingNode != this.sinkTimingNode.getSourceEdge(0).getSource()) {
@@ -76,8 +80,13 @@ public class Connection implements Comparable<Connection>  {
 		//Net name
 		this.netName = this.source.getNetName();
 		
+		
+		
 		this.net = null;
 	}
+	
+	//add another type of connection that only accepts 1 global pin input. In this case the other end of the connection depends on the 
+	//the placer results.
 	private int calculateBoundingBox() {
 		int min_x, max_x, min_y, max_y;
 		

@@ -1,5 +1,8 @@
 package route.circuit.resource;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import route.route.RouteNodeData;
 
 public abstract class RouteNode implements Comparable<RouteNode> {
@@ -10,28 +13,39 @@ public abstract class RouteNode implements Comparable<RouteNode> {
 	public final float centerx, centery;
 	public final short n;
 	
+	public final String direction;
 	public float delay;
 	public final float r;
 	public final float c;
 	
 	public final float base_cost;
+	public float ortho_base_cost;
+	public float ortho_inv_length = 0;
+	public float inv_lngth = 0;
 	
 	public boolean isOpin;
+	public boolean isDeleted = false;
+	public boolean isSLLWire = false;
+	public boolean isAtBorder = false; //this is to control the connects enabled by switchbox :(
 	
 	public final RouteNodeType type;
 	public final boolean isWire;
 	public final short capacity;
 	
-	public final int numChildren;
-	public final RouteNode[] children;
-	public final RouteSwitch[] switches;
+	public int numChildren;
+	public RouteNode[] children;
+	public RouteSwitch[] switches;
+	
+	public int segID;
+	public RouteNode interposerNode;
 
 	public final IndexedData indexedData;
 	public final RouteNodeData routeNodeData;
-	
+	public int currentIndex;
 	public boolean target;
+	public boolean isReplacedNode = false;
 	
-	public RouteNode(int index, int xlow, int xhigh, int ylow, int yhigh, int n, int capacity, RouteNodeType t, float r, float c, IndexedData indexedData, int numChildren) {
+	public RouteNode(int index, int xlow, int xhigh, int ylow, int yhigh, int n, int capacity, RouteNodeType t, float r, float c, IndexedData indexedData, String direction, int numChildren) {
 		this.index = index;
 		
 		this.isOpin = false;
@@ -48,7 +62,52 @@ public abstract class RouteNode implements Comparable<RouteNode> {
 		this.routeNodeData = new RouteNodeData(this.index);
 		
 		this.n = (short) n;
+		this.type = t;
+		if(this.type == RouteNodeType.CHANX || this.type == RouteNodeType.CHANY) {
+			this.isWire = true;
+		} else {
+			this.isWire = false;
+		}
+		this.capacity = (short) capacity;
 		
+		this.r = r;
+		this.c = c;
+		this.delay = -1;
+		this.currentIndex = 0;
+		this.interposerNode = null;
+		if(this.isWire) {
+			this.base_cost = this.indexedData.getBaseCost();
+		} else if (this.type == RouteNodeType.OPIN) {
+			this.base_cost = this.indexedData.getBaseCost();
+		} else {
+			this.base_cost = this.indexedData.getBaseCost();
+		}
+	
+		
+		this.numChildren = numChildren;
+		this.children = new RouteNode[this.numChildren + 1]; 
+		this.switches = new RouteSwitch[this.numChildren + 1]; 
+		this.direction = direction;
+		this.target = false;
+	}
+	
+	public RouteNode(int index, int xlow, int xhigh, int ylow, int yhigh, int n, int capacity, RouteNodeType t, float r, float c, IndexedData indexedData, String direction, int numChildren, int segID) {
+		this.index = index;
+		this.segID = segID;
+		this.isOpin = false;
+		
+		this.xlow = (short) xlow;
+		this.xhigh = (short) xhigh;
+		this.ylow = (short) ylow;
+		this.yhigh = (short) yhigh;
+		
+		this.centerx = 0.5f * (this.xlow + this.xhigh);
+		this.centery = 0.5f * (this.ylow + this.yhigh);
+		
+		this.indexedData = indexedData;
+		this.routeNodeData = new RouteNodeData(this.index);
+		
+		this.n = (short) n;
 		this.type = t;
 		if(this.type == RouteNodeType.CHANX || this.type == RouteNodeType.CHANY) {
 			this.isWire = true;
@@ -61,32 +120,161 @@ public abstract class RouteNode implements Comparable<RouteNode> {
 		this.c = c;
 		this.delay = -1;
 		
+		this.interposerNode = null;
 		if(this.isWire) {
-			this.base_cost = this.indexedData.getBaseCost() * this.wireLength();
+
+			this.base_cost = this.indexedData.getBaseCost();
+
 		} else if (this.type == RouteNodeType.OPIN) {
-			this.base_cost = this.indexedData.getBaseCost() * 4;
+
+			this.base_cost = this.indexedData.getBaseCost();
 		} else {
 			this.base_cost = this.indexedData.getBaseCost();
 		}
 		
-		this.numChildren = numChildren;
-		this.children = new RouteNode[this.numChildren];
-		this.switches = new RouteSwitch[this.numChildren];
 
+		this.currentIndex = 0;
+		this.numChildren = numChildren;
+		this.children = new RouteNode[this.numChildren + 1]; 
+		this.switches = new RouteSwitch[this.numChildren + 1];
+		this.direction = direction;
 		this.target = false;
 	}
 	
+	public RouteNode(int index, int xlow, int xhigh, int ylow, int yhigh, int n, int capacity, RouteNodeType t, float r, float c, IndexedData indexedData, String direction) {
+		this.index = index;
+		this.segID = 3;
+		this.isOpin = false;
+		
+		this.xlow = (short) xlow;
+		this.xhigh = (short) xhigh;
+		this.ylow = (short) ylow;
+		this.yhigh = (short) yhigh;
+		
+		
+		this.centerx = 0.5f * (this.xlow + this.xhigh);
+		this.centery = 0.5f * (this.ylow + this.yhigh);
+		
+		this.indexedData = indexedData;
+		this.routeNodeData = new RouteNodeData(this.index);
+		
+		this.n = (short) n;
+		this.type = t;
+		if(this.type == RouteNodeType.CHANX || this.type == RouteNodeType.CHANY) {
+			this.isWire = true;
+		} else {
+			this.isWire = false;
+		}
+		this.capacity = (short) capacity;
+		
+		this.r = r;
+		this.c = c;
+		this.delay = -1;
+		
+		this.interposerNode = null;
+		if(this.isWire) {
+
+			this.base_cost = this.indexedData.getBaseCost();
+
+		} else if (this.type == RouteNodeType.OPIN) {
+
+			this.base_cost = this.indexedData.getBaseCost();
+		} else {
+			this.base_cost = this.indexedData.getBaseCost();
+		}
+
+		this.currentIndex = 0;
+
+		this.direction = direction;
+		this.target = false;
+	}
+	
+	public void setNumChildren(int numChildren) {
+		this.numChildren = numChildren;
+		this.children = new RouteNode[this.numChildren];
+		this.switches = new RouteSwitch[this.numChildren];
+	}
 	public void setChild(int index, RouteNode child) {
 		this.children[index] = child;
+		if(this.currentIndex <= this.numChildren) {
+			this.currentIndex++;
+		}else {
+			System.err.print("\nExtra children!!");
+		}
+
+	}
+	
+	public void setBorderStatus() {
+		this.isAtBorder = true;
+	}
+	
+	public Boolean getBorderStatus() {
+		return this.isAtBorder;
+	}
+	
+	public void setSLLWireNode() {
+		this.isSLLWire = true;
+	}
+	public Boolean getSLLWireStatus() {
+		return this.isSLLWire;
+	}
+	public void setNewChild(int index, RouteNode child) {
+		this.children[index] = child;
+	}
+	public void removeChild(int index) {
+
+		this.children[index] = null;
+
+		
+	}
+	
+	public void removeChild(RouteNode child) {
+		for(int i = 0; i < this.numChildren; i++) {
+			if(this.children[i] == child) {
+				this.children[i] = null;
+			}
+		}
+	}
+	public void isReplacedNode() {
+		this.isReplacedNode = true;
+	}
+	public boolean replaced() {
+		return this.isReplacedNode;
+	}
+	
+	public void isDeletedNode() {
+		this.isDeleted = true;
+	}
+	public Boolean getDeleteStatus() {
+		return this.isDeleted;
 	}
 	public void setSwitchType(int index, RouteSwitch routeSwitch) {
 		this.switches[index] = routeSwitch;
+
+	}
+	
+	public RouteSwitch getSwitchType(int index) {
+		return this.switches[index];
+	}
+	
+	public RouteNode[] getChildren() {
+		return this.children;
+	}
+	
+	public void setInterposerNode(RouteNode InterposerNode) {
+		this.interposerNode = InterposerNode;
+	}
+	
+	public RouteNode getInterposerNode() {
+		return this.interposerNode;
+	}
+	public int getNumChildren() {
+		return this.numChildren;
 	}
 	
 	public int wireLength() {
 		int length = this.xhigh - this.xlow + this.yhigh - this.ylow + 1;
-		
-		if(length <= 0) System.err.println("The length of wire with type " + this.type + " is equal to " + length);
+		if(length <= 0) System.err.println("The length of wire with type " + this.type + " is equal to " + length + " the node id is " + this.index );
 		
 		return length;
 	}
@@ -145,6 +333,37 @@ public abstract class RouteNode implements Comparable<RouteNode> {
 		s.append(String.format("num_unique_parents = %2d ", this.routeNodeData.numUniqueParents()));
 		s.append(", ");
 		s.append(String.format("type = %s", this.type));
+		s.append(", ");
+		s.append(String.format("direction = %s", this.direction));
+		return s.toString();
+	}
+	
+	public String getDetails() {
+		StringBuilder s = new StringBuilder();
+		s.append(index + ";");
+		s.append(this.type +";");
+		s.append(this.direction +";");
+		s.append(this.capacity +";");
+		s.append(this.xlow + ";");
+		s.append(this.ylow + ";");
+		s.append(this.xhigh + ";");
+		s.append(this.yhigh + ";");
+		if(this.isWire) {
+			s.append("0;");
+		}else {
+			s.append(this.n +";");
+		}
+		
+		s.append(this.r+";");
+		s.append(this.c+";");
+		if(!this.isWire) {
+			s.append("-;");
+		}else {
+			s.append(this.segID+";");
+		}
+		
+		s.append(this.numChildren +";");
+
 		
 		return s.toString();
 	}

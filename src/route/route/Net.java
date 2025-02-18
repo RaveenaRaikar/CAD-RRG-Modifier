@@ -76,14 +76,13 @@ public class Net {
 		//Sink pins of net
 		for(Connection connection : net) {
 			Sink sink = (Sink) connection.sinkRouteNode;
-			
 			if(sink.xlow != sink.xhigh) {
 				xGeomeanSum += sink.centerx;
 				
 				xCoordinatesBB.add(sink.xlow);
 				xCoordinatesBB.add(sink.xhigh);
 			} else {
-				xGeomeanSum += sink.xlow;
+				xGeomeanSum += sink.xlow; 
 				xCoordinatesBB.add(sink.xlow);
 			}
 			if(sink.ylow != sink.yhigh) {

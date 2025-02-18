@@ -4,7 +4,7 @@ public class Sink extends RouteNode {
 	private String name;
 	
 	public Sink(int index, int xlow, int xhigh, int ylow, int yhigh, int n, int capacity, IndexedData indexedData, int numChildren) {
-		super(index, xlow, xhigh, ylow, yhigh, n, capacity, RouteNodeType.SINK, 0, 0, indexedData, numChildren);
+		super(index, xlow, xhigh, ylow, yhigh, n, capacity, RouteNodeType.SINK, 0, 0, indexedData, "none", numChildren);
 		
 		this.name = null;
 	}

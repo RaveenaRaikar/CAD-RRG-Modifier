@@ -32,21 +32,27 @@ public class Instance {
 		this.block = block;
 	}
 	
+
 	public boolean containsSource(String portName) {
+
 		return this.sources.containsKey(portName);
 	}
 	public boolean containsSink(String portName) {
+
 		return this.sinks.containsKey(portName);
 	}
 	
 	public void addSource(Source source) {
+
 		this.sources.put(source.getName(), source);
 	}
 	public void addSink(Sink sink) {
+
 		this.sinks.put(sink.getName(), sink);
 	}
 	
 	public Source getSource(String name) {
+
     	if(this.sources.containsKey(name)) {
     		return this.sources.get(name);
     	} else {
